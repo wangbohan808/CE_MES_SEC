@@ -1,7 +1,7 @@
 # Omini 基站全功能治具 — AI 实现规格（移交稿）
 
 > **用途**：供后续 AI 或工程师在 **不依赖口头上下文** 的情况下，直接实现 Omini 基站全功能上位机逻辑。  
-> **状态**：**未实现**（本文档为定稿规格；代码库中尚无 `omini_*` / `# #[OMINI-PROTO]`）。  
+> **状态**：**已实现**（`device_type=020`，详见 `OMINI_FULL_020_IMPLEMENTATION_SPEC.md`；代码锚点 `# #[OMINI-020-PROTO]`）。  
 > **设计原则**：协议帧与 **RV50 全功能（017）** 相同；配置使用独立 **`omini_*` 前缀**；业务函数 **独立命名**（即使逻辑可复用 RV50，也写一套 `omini_proto_*`，并在判据层做优化）。  
 > **对照范例**：`test_tool/test.py` 中 `# #[RV50-017-PROTO]`、`ui/MainFrame.py` 中 `rv50_item_result`、`config.yaml` §017、`doc/ce_mes_iteration/RV50_BASE_CONFIG_SCHEME_B_SPEC.md`（帧尾配置号扩展）。  
 > **本文档不包含代码修改**；实现前必须先完成 §2「待用户确认项」。

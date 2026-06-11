@@ -165,6 +165,37 @@ class LoadCfg:
     rv50_turbidity_max: int = 0
     rv50_hot_diff_min: int = 0
     rv50_hot_diff_max: int = 0
+    # #[OMINI-020-PROTO] device_type=020 Omini 基站全功能（帧 dev=0x14）；0=不参与比较
+    omini_charge_min: int = 0
+    omini_charge_max: int = 0
+    omini_suction_10pa_Hmin: int = 0
+    omini_suction_10pa_Hmax: int = 0
+    omini_suction_10pa_Lmin: int = 0
+    omini_suction_10pa_Lmax: int = 0
+    omini_ir_l: int = 0
+    omini_ir_r: int = 0
+    omini_ir_n: int = 0
+    omini_clear_tank_expected: int = 0
+    omini_duty_tank_expected: int = 0
+    omini_dust_expected: int = 0
+    omini_clean_base_expected: int = 0
+    omini_clean_pump_min: int = 0
+    omini_clean_pump_max: int = 0
+    omini_vacuum_pump_min: int = 0
+    omini_vacuum_pump_max: int = 0
+    omini_base_level_up_min: int = 0
+    omini_base_level_up_max: int = 0
+    omini_base_level_down_min: int = 0
+    omini_base_level_down_max: int = 0
+    omini_em_valve_min: int = 0
+    omini_em_valve_max: int = 0
+    omini_wash_pump_min: int = 0
+    omini_wash_pump_max: int = 0
+    omini_turbidity_min: int = 0
+    omini_turbidity_max: int = 0
+    omini_hot_diff_min: int = 0
+    omini_hot_diff_max: int = 0
+    omini_base_config_expected: str = ""
     # #[RV50-018-PCBA-PROTO] device_type=018 基站 PCBA（帧设备字节 0x12）
     rv50pcba_charge_min: int = 0
     rv50pcba_charge_max: int = 0
@@ -331,6 +362,34 @@ RV50_REALTIME_FIELDS = (
     "wash_pump", "turbidity", "hot_diff",
 )
 
+# #[OMINI-020-PROTO] Omini 基站全功能 device_type=020，0x77 数据区 38 字节（帧 dev=0x14）
+OMINI_77_DATA_LEN = 38
+OMINI_SESS_IDLE = 0
+OMINI_SESS_WAIT_SN = 1
+OMINI_SESS_RUNNING = 2
+OMINI_SESS_FINISHED = 3
+OMINI_SESS_ABORTED = 4
+omini_session_state = OMINI_SESS_IDLE
+omini_last_step = -1
+omini_max_step = 0
+omini_last_p = None
+omini_last_step4_notify_key = ""
+omini_89_mes_done = False
+omini_realtime_ng = False
+
+OMINI_STEP4_MODULE_FIELDS = ("clear_tank", "dust", "clean_base", "duty_tank")
+OMINI_STEP4_SUBSTEPS = (
+    ("clear_tank", "清水箱", "请提起清水箱", "请放下清水箱",
+     "提起/放下清水箱，直到「清水箱在位」通过"),
+    ("dust", "尘袋", "请拔出尘袋", "请插入尘袋", "拔插尘袋，直到「尘袋」通过"),
+    ("clean_base", "清洁底座", "请取出清洁底座", "请放入清洁底座",
+     "取出/放入清洁底座，直至「清洁底座在位」通过"),
+    ("duty_tank", "污水箱", "请提起污水箱", "请放下污水箱",
+     "提起/放下污水箱，直至「污水箱在位」通过"),
+)
+OMINI_STEP4_ORDER_HINT = "步骤四：请严格按顺序操作（清水箱→尘袋→清洁底座→污水箱→观察灯显）"
+OMINI_STEP4_LED_HINT = "请工人观察LED灯显示，正常按开始键，异常按结束键"
+
 # #[RV50-018-PCBA-PROTO] RV50 基站 PCBA device_type=018，0x77 数据区 38 字节（帧长字段 0x26）
 RV50PCBA_77_DATA_LEN = 38
 RV50PCBA_SESS_IDLE = 0
@@ -384,6 +443,37 @@ def _rv50_suction_threshold_10pa():
     su = (
         load_cfg.rv50_suction_10pa_Hmin, load_cfg.rv50_suction_10pa_Lmin,
         load_cfg.rv50_suction_10pa_Hmax, load_cfg.rv50_suction_10pa_Lmax,
+    )
+    if su == (0, 0, 0, 0):
+        return 0, 0
+    slo = (su[0] << 8) | (su[1] & 0xFF)
+    shi = (su[2] << 8) | (su[3] & 0xFF)
+    if slo > shi and (slo != 0 or shi != 0):
+        slo, shi = shi, slo
+    return slo, shi
+
+
+def _omini_config_suction_10pa(config):
+    if "omini_suction_kpa_min" in config or "omini_suction_kpa_max" in config:
+        kmin = float(config.get("omini_suction_kpa_min", 0))
+        kmax = float(config.get("omini_suction_kpa_max", 0))
+        umin = _rv30_kpa_to_10pa(kmin)
+        umax = _rv30_kpa_to_10pa(kmax)
+        if umin > umax and (umin != 0 or umax != 0):
+            umin, umax = umax, umin
+        return umin, umax
+    return _rv30_config_u16(
+        config,
+        "omini_suction_10pa_min", "omini_suction_10pa_max",
+        "omini_suction_10pa_Hmin", "omini_suction_10pa_Lmin",
+        "omini_suction_10pa_Hmax", "omini_suction_10pa_Lmax",
+    )
+
+
+def _omini_suction_threshold_10pa():
+    su = (
+        load_cfg.omini_suction_10pa_Hmin, load_cfg.omini_suction_10pa_Lmin,
+        load_cfg.omini_suction_10pa_Hmax, load_cfg.omini_suction_10pa_Lmax,
     )
     if su == (0, 0, 0, 0):
         return 0, 0
@@ -644,6 +734,12 @@ def barcode_check_process():
     global rv50_session_state
     global rv50_last_step
     global rv50_max_step
+    global omini_session_state
+    global omini_last_step
+    global omini_max_step
+    global omini_last_step4_notify_key
+    global omini_89_mes_done
+    global omini_realtime_ng
     global rv50pcba_session_state
     global rv50pcba_last_step
     global rv50pcba_max_step
@@ -679,6 +775,35 @@ def barcode_check_process():
                 ser_send_data(dev=17, cmd=0x58, data=str_list)
                 ser_send_data(dev=17, cmd=0x89, data=[0x03])
                 rv50_session_state = RV50_SESS_ABORTED
+            check_sn_enable = False
+            return
+        elif int(load_cfg.dev) == 20:  # #[OMINI-020-PROTO] 门闸失败 0x58+0x89[0x03]，不上报 MES
+            print("[OMINI-020] check sn: " + sn)
+            encode_res = encode_rules.match_sn_encoding_rules(dev=load_cfg.dev, sn=str(sn))
+            if encode_res is not True:
+                wx.CallAfter(MainFrame.main_frame.up_notification_ui,
+                             second="SN码异常，请检测：" + str(sn),
+                             color=wx.RED)
+                ser_send_data(dev=20, cmd=0x58, data=str_list)
+                ser_send_data(dev=20, cmd=0x89, data=[0x03])
+                check_sn_str = sn
+                check_sn_enable = False
+                omini_session_state = OMINI_SESS_ABORTED
+                return
+            res = mes_run.check_sn_is_ok(sn)
+            check_sn_str = sn
+            if res:
+                ser_send_data(dev=20, cmd=0x57, data=str_list)
+                omini_session_state = OMINI_SESS_RUNNING
+                omini_last_step = -1
+                omini_max_step = 0
+                omini_last_step4_notify_key = ""
+                omini_89_mes_done = False
+                omini_realtime_ng = False
+            else:
+                ser_send_data(dev=20, cmd=0x58, data=str_list)
+                ser_send_data(dev=20, cmd=0x89, data=[0x03])
+                omini_session_state = OMINI_SESS_ABORTED
             check_sn_enable = False
             return
         elif int(load_cfg.dev) == 18:  # #[RV50-018-PCBA-PROTO] 帧设备字节 0x12
@@ -1098,6 +1223,64 @@ def load_config():
     load_cfg.rv50_hot_diff_max = int(
         config.get("rv50_hot_diff_max", getattr(load_cfg, "rv50_hot_diff_max", 0)))
 
+    # #[OMINI-020-PROTO] device_type=020 判据（0=不参与比较）
+    omini_chg_min, omini_chg_max = _rv30_config_u16(
+        config,
+        "omini_charge_min", "omini_charge_max",
+        "omini_charge_Hmin", "omini_charge_Lmin", "omini_charge_Hmax", "omini_charge_Lmax",
+    )
+    load_cfg.omini_charge_min = omini_chg_min
+    load_cfg.omini_charge_max = omini_chg_max
+    omini_suct_min, omini_suct_max = _omini_config_suction_10pa(config)
+    load_cfg.omini_suction_10pa_Hmin, load_cfg.omini_suction_10pa_Lmin = _rv30_u16_to_hl(omini_suct_min)
+    load_cfg.omini_suction_10pa_Hmax, load_cfg.omini_suction_10pa_Lmax = _rv30_u16_to_hl(omini_suct_max)
+    load_cfg.omini_ir_l = int(config.get("omini_ir_l", getattr(load_cfg, "omini_ir_l", 0)))
+    load_cfg.omini_ir_r = int(config.get("omini_ir_r", getattr(load_cfg, "omini_ir_r", 0)))
+    load_cfg.omini_ir_n = int(config.get("omini_ir_n", getattr(load_cfg, "omini_ir_n", 0)))
+    load_cfg.omini_clear_tank_expected = int(
+        config.get("omini_clear_tank_expected", getattr(load_cfg, "omini_clear_tank_expected", 0)))
+    load_cfg.omini_duty_tank_expected = int(
+        config.get("omini_duty_tank_expected", getattr(load_cfg, "omini_duty_tank_expected", 0)))
+    load_cfg.omini_dust_expected = int(
+        config.get("omini_dust_expected", getattr(load_cfg, "omini_dust_expected", 0)))
+    load_cfg.omini_clean_base_expected = int(
+        config.get("omini_clean_base_expected", getattr(load_cfg, "omini_clean_base_expected", 0)))
+    load_cfg.omini_clean_pump_min = int(
+        config.get("omini_clean_pump_min", getattr(load_cfg, "omini_clean_pump_min", 0)))
+    load_cfg.omini_clean_pump_max = int(
+        config.get("omini_clean_pump_max", getattr(load_cfg, "omini_clean_pump_max", 0)))
+    load_cfg.omini_vacuum_pump_min = int(
+        config.get("omini_vacuum_pump_min", getattr(load_cfg, "omini_vacuum_pump_min", 0)))
+    load_cfg.omini_vacuum_pump_max = int(
+        config.get("omini_vacuum_pump_max", getattr(load_cfg, "omini_vacuum_pump_max", 0)))
+    load_cfg.omini_base_level_up_min = int(
+        config.get("omini_base_level_up_min", getattr(load_cfg, "omini_base_level_up_min", 0)))
+    load_cfg.omini_base_level_up_max = int(
+        config.get("omini_base_level_up_max", getattr(load_cfg, "omini_base_level_up_max", 0)))
+    load_cfg.omini_base_level_down_min = int(
+        config.get("omini_base_level_down_min", getattr(load_cfg, "omini_base_level_down_min", 0)))
+    load_cfg.omini_base_level_down_max = int(
+        config.get("omini_base_level_down_max", getattr(load_cfg, "omini_base_level_down_max", 0)))
+    load_cfg.omini_em_valve_min = int(
+        config.get("omini_em_valve_min", getattr(load_cfg, "omini_em_valve_min", 0)))
+    load_cfg.omini_em_valve_max = int(
+        config.get("omini_em_valve_max", getattr(load_cfg, "omini_em_valve_max", 0)))
+    load_cfg.omini_wash_pump_min = int(
+        config.get("omini_wash_pump_min", getattr(load_cfg, "omini_wash_pump_min", 0)))
+    load_cfg.omini_wash_pump_max = int(
+        config.get("omini_wash_pump_max", getattr(load_cfg, "omini_wash_pump_max", 0)))
+    load_cfg.omini_turbidity_min = int(
+        config.get("omini_turbidity_min", getattr(load_cfg, "omini_turbidity_min", 0)))
+    load_cfg.omini_turbidity_max = int(
+        config.get("omini_turbidity_max", getattr(load_cfg, "omini_turbidity_max", 0)))
+    load_cfg.omini_hot_diff_min = int(
+        config.get("omini_hot_diff_min", getattr(load_cfg, "omini_hot_diff_min", 0)))
+    load_cfg.omini_hot_diff_max = int(
+        config.get("omini_hot_diff_max", getattr(load_cfg, "omini_hot_diff_max", 0)))
+    load_cfg.omini_base_config_expected = str(
+        config.get("omini_base_config_expected",
+                   getattr(load_cfg, "omini_base_config_expected", ""))).strip()
+
     # #[RV50-018-PCBA-PROTO] device_type=018 判据（0=不参与比较）
     rv50pcba_chg_min, rv50pcba_chg_max = _rv30_config_u16(
         config,
@@ -1346,6 +1529,8 @@ def test_cmd_handle(dev, cmd, dat):
             Omini_air_mode(dev, cmd, dat)
         elif int(dev) == 22:  # #[OMINIWATER-022-PROTO] 帧设备字节 0x16
             Omini_water_mode(dev, cmd, dat)
+        elif int(dev) == 20:  # #[OMINI-020-PROTO] 帧设备字节 0x14
+            Omini_finished_product_mode(dev, cmd, dat)
         elif int(dev) == 17:  # #[RV50-017-PROTO]
             RV50_finished_product_mode(dev, cmd, dat)
         elif int(dev) == 18:  # #[RV50-018-PCBA-PROTO] 帧设备字节 0x12
@@ -2634,6 +2819,727 @@ def RV50_finished_product_mode(dev, cmd, dat):
         print("[RV50-017] 忽略 0x68 阈值上传 len=" + str(len(dat)))
     else:
         print("[RV50-017] 未处理命令 cmd=" + hex(cmd))
+
+
+# ---------- #[OMINI-020-PROTO] Omini 基站全功能（device_type=020，帧 dev=0x14）----------
+OMINI_UI_LABELS = {
+    "mcu_ver": "MCU版本：",
+    "base_station_config": "基站配置码：",
+    "charge_value": "充电电流：",
+    "omini_hot_start": "热风开始：",
+    "ir_code_left": "左回充码：",
+    "ir_code_right": "右回充码：",
+    "ir_code_near": "近卫回充码：",
+    "clear_tank_install": "清水箱在位：",
+    "duty_tank_install": "污水箱在位：",
+    "dust_bug_install": "尘袋：",
+    "clean_base_install": "清洁底座在位：",
+    "dust_collection_suction": "集尘吸力(kPa)：",
+    "clean_water_pump_current": "清水泵电流：",
+    "duty_water_pump_current": "真空泵电流：",
+    "omini_base_level_up": "底座液位(抬起)：",
+    "omini_base_level_down": "底座液位(按下)：",
+    "electromagnetic_three_way_current": "电磁三通电流：",
+    "omini_hot_end": "热风结束：",
+    "cleaner_pump_current": "清洁泵电流：",
+    "turbidity_data": "浊度：",
+    "omini_hot_diff": "热风差值：",
+}
+
+OMINI_FIELD_REGISTRY = [
+    {"field": "dev_ver", "kind": "version", "ui": "mcu_ver", "mes": "MCU版本", "active_from_step": 4},
+    {"field": "base_config", "kind": "string", "ui": "base_station_config", "mes": "基站配置码",
+     "expect_attr": "omini_base_config_expected", "active_from_step": 4},
+    {"field": "charge", "kind": "range", "ui": "charge_value", "mes": "充电电流",
+     "min_attr": "omini_charge_min", "max_attr": "omini_charge_max", "active_from_step": 1},
+    {"field": "ir_l", "kind": "expected", "ui": "ir_code_left", "mes": "左回充码",
+     "expect_attr": "omini_ir_l", "active_from_step": 3},
+    {"field": "ir_r", "kind": "expected", "ui": "ir_code_right", "mes": "右回充码",
+     "expect_attr": "omini_ir_r", "active_from_step": 3},
+    {"field": "ir_n", "kind": "expected", "ui": "ir_code_near", "mes": "近卫回充码",
+     "expect_attr": "omini_ir_n", "active_from_step": 3},
+    {"field": "clear_tank", "kind": "expected", "ui": "clear_tank_install", "mes": "清水箱在位",
+     "expect_attr": "omini_clear_tank_expected", "active_from_step": 4, "step4_module": True},
+    {"field": "duty_tank", "kind": "expected", "ui": "duty_tank_install", "mes": "污水箱在位",
+     "expect_attr": "omini_duty_tank_expected", "active_from_step": 4, "step4_module": True},
+    {"field": "dust", "kind": "expected", "ui": "dust_bug_install", "mes": "尘袋",
+     "expect_attr": "omini_dust_expected", "active_from_step": 4, "step4_module": True},
+    {"field": "clean_base", "kind": "expected", "ui": "clean_base_install", "mes": "清洁底座在位",
+     "expect_attr": "omini_clean_base_expected", "active_from_step": 4, "step4_module": True},
+    {"field": "suction_10pa", "kind": "range_suction", "ui": "dust_collection_suction", "mes": "集尘吸力kPa",
+     "active_from_step": 5},
+    {"field": "clean_pump", "kind": "range", "ui": "clean_water_pump_current", "mes": "清水泵电流",
+     "min_attr": "omini_clean_pump_min", "max_attr": "omini_clean_pump_max", "active_from_step": 6},
+    {"field": "vacuum_pump", "kind": "range", "ui": "duty_water_pump_current", "mes": "真空泵电流",
+     "min_attr": "omini_vacuum_pump_min", "max_attr": "omini_vacuum_pump_max", "active_from_step": 6},
+    {"field": "base_level_up", "kind": "range", "ui": "omini_base_level_up", "mes": "底座液位(抬起)",
+     "min_attr": "omini_base_level_up_min", "max_attr": "omini_base_level_up_max", "active_from_step": 6},
+    {"field": "base_level_down", "kind": "range", "ui": "omini_base_level_down", "mes": "底座液位(按下)",
+     "min_attr": "omini_base_level_down_min", "max_attr": "omini_base_level_down_max", "active_from_step": 6},
+    {"field": "em_valve", "kind": "range", "ui": "electromagnetic_three_way_current", "mes": "电磁三通电流",
+     "min_attr": "omini_em_valve_min", "max_attr": "omini_em_valve_max", "active_from_step": 6},
+    {"field": "wash_pump", "kind": "range", "ui": "cleaner_pump_current", "mes": "清洁泵电流",
+     "min_attr": "omini_wash_pump_min", "max_attr": "omini_wash_pump_max", "active_from_step": 7},
+    {"field": "turbidity", "kind": "range", "ui": "turbidity_data", "mes": "浊度数据",
+     "min_attr": "omini_turbidity_min", "max_attr": "omini_turbidity_max", "active_from_step": 7},
+    {"field": "hot_diff", "kind": "range", "ui": "omini_hot_diff", "mes": "热风差值",
+     "min_attr": "omini_hot_diff_min", "max_attr": "omini_hot_diff_max", "active_from_step": 7},
+    {"field": "hot_start", "kind": "monitor", "ui": "omini_hot_start", "mes": "热风开始", "active_from_step": 7},
+    {"field": "hot_end", "kind": "monitor", "ui": "omini_hot_end", "mes": "热风结束", "active_from_step": 7},
+]
+
+
+def _omini_range_enabled(lo, hi):
+    return not (int(lo) == 0 and int(hi) == 0)
+
+
+def _omini_registry_entry(field):
+    for entry in OMINI_FIELD_REGISTRY:
+        if entry["field"] == field:
+            return entry
+    return None
+
+
+def omini_field_enabled(field):
+    entry = _omini_registry_entry(field)
+    if entry is None:
+        return False
+    kind = entry["kind"]
+    if kind == "monitor":
+        return omini_field_enabled("hot_diff")
+    if kind == "version":
+        return bool((load_cfg.mcu_ver or "").strip())
+    if kind == "string":
+        expect = getattr(load_cfg, entry.get("expect_attr", ""), "")
+        return bool(str(expect).strip())
+    if kind == "expected":
+        expect = getattr(load_cfg, entry.get("expect_attr", ""), 0)
+        return bool(int(expect))
+    if kind == "range":
+        lo = getattr(load_cfg, entry["min_attr"], 0)
+        hi = getattr(load_cfg, entry["max_attr"], 0)
+        return _omini_range_enabled(lo, hi)
+    if kind == "range_suction":
+        slo, shi = _omini_suction_threshold_10pa()
+        return not (slo == 0 and shi == 0)
+    return False
+
+
+def omini_field_active(step, field):
+    entry = _omini_registry_entry(field)
+    if entry is None:
+        return False
+    st = int(step) if step is not None else 0
+    if st < 1:
+        return False
+    return st >= int(entry.get("active_from_step", 1))
+
+
+def omini_step4_enabled_modules():
+    return tuple(
+        f for f in OMINI_STEP4_MODULE_FIELDS
+        if omini_field_enabled(f)
+    )
+
+
+def omini_build_item_result():
+    items = []
+    for entry in OMINI_FIELD_REGISTRY:
+        if omini_field_enabled(entry["field"]):
+            ui = entry["ui"]
+            items.append({ui: [OMINI_UI_LABELS[ui], "", "white"]})
+    return items
+
+
+def omini_proto_reset_to_idle():
+    global omini_session_state, omini_last_step, omini_max_step, omini_last_p
+    global omini_last_step4_notify_key, omini_89_mes_done, omini_realtime_ng
+    omini_session_state = OMINI_SESS_IDLE
+    omini_last_step = -1
+    omini_max_step = 0
+    omini_last_p = None
+    omini_last_step4_notify_key = ""
+    omini_89_mes_done = False
+    omini_realtime_ng = False
+
+
+def omini_proto_mes_ng_once(notify_second="MES已报NG"):
+    global test_end_time, omini_89_mes_done, omini_session_state
+    if omini_89_mes_done:
+        return
+    omini_89_mes_done = True
+    test_end_time = datetime.now()
+    omini_session_state = OMINI_SESS_ABORTED
+    mes_run.send_report(test_start_time, test_end_time, check_sn_str, "NG")
+    wx.CallAfter(MainFrame.main_frame.up_notification_ui, second=notify_second, color=wx.RED)
+
+
+def omini_proto_realtime_fail(dev, reason):
+    global omini_realtime_ng
+    if omini_89_mes_done:
+        return
+    omini_realtime_ng = True
+    ser_send_data(dev, 0x89, data=[0x03])
+    mes_run.add_report(name="Omini实时判据", result="NG", value=str(reason))
+    omini_proto_mes_ng_once(notify_second="实时判据失败：" + str(reason))
+
+
+def omini_proto_parse_77_apply_globals(dat):
+    global charge_value, dev_ver, ver_res
+    global ir_code_left, ir_code_right, ir_code_near
+    global clear_tank_install, duty_tank_install, dust_bug_install, clean_base_install
+    global dust_collection_suction, clean_water_pump_current, duty_water_pump_current
+    global cleaner_pump_current, electromagnetic_three_way_current
+    global turbidity_data
+    global rv50_base_level_up_adc, rv50_base_level_down_adc
+    global rv50_hot_start_adc, rv50_hot_end_adc, rv50_hot_diff_adc
+    if len(dat) < OMINI_77_DATA_LEN:
+        print("[OMINI-020] 0x77 数据区长度不足: got", len(dat), "need", OMINI_77_DATA_LEN)
+        return None
+    step = int(dat[0])
+    charge_value = _rv30_u16_be(dat[1], dat[2])
+    ir_code_left = int(dat[3])
+    ir_code_right = int(dat[4])
+    ir_code_near = int(dat[5])
+    clear_tank_install = int(dat[6])
+    duty_tank_install = int(dat[7])
+    dust_bug_install = int(dat[8])
+    clean_base_install = int(dat[9])
+    dev_ver = ".".join(format(int(dat[i]), "03d") for i in range(10, 13))
+    base_config = rv50_fmt_ver_3bytes(dat, 13)
+    dust_collection_suction = _rv30_u16_be(dat[16], dat[17])
+    clean_water_pump_current = _rv30_u16_be(dat[18], dat[19])
+    duty_water_pump_current = _rv30_u16_be(dat[20], dat[21])
+    rv50_base_level_up_adc = _rv30_u16_be(dat[22], dat[23])
+    rv50_base_level_down_adc = _rv30_u16_be(dat[24], dat[25])
+    electromagnetic_three_way_current = _rv30_u16_be(dat[26], dat[27])
+    cleaner_pump_current = _rv30_u16_be(dat[28], dat[29])
+    turbidity_data = _rv30_u16_be(dat[30], dat[31])
+    rv50_hot_start_adc = _rv30_u16_be(dat[32], dat[33])
+    rv50_hot_end_adc = _rv30_u16_be(dat[34], dat[35])
+    rv50_hot_diff_adc = _rv30_u16_be(dat[36], dat[37])
+    if dev_ver == load_cfg.mcu_ver:
+        ver_res = "OK"
+    else:
+        ver_res = "NG"
+    return {
+        "step": step,
+        "charge": charge_value,
+        "ir_l": ir_code_left,
+        "ir_r": ir_code_right,
+        "ir_n": ir_code_near,
+        "clear_tank": clear_tank_install,
+        "duty_tank": duty_tank_install,
+        "dust": dust_bug_install,
+        "clean_base": clean_base_install,
+        "dev_ver": dev_ver,
+        "base_config": base_config,
+        "suction_10pa": dust_collection_suction,
+        "clean_pump": clean_water_pump_current,
+        "vacuum_pump": duty_water_pump_current,
+        "base_level_up": rv50_base_level_up_adc,
+        "base_level_down": rv50_base_level_down_adc,
+        "em_valve": electromagnetic_three_way_current,
+        "wash_pump": cleaner_pump_current,
+        "turbidity": turbidity_data,
+        "hot_start": rv50_hot_start_adc,
+        "hot_end": rv50_hot_end_adc,
+        "hot_diff": rv50_hot_diff_adc,
+    }
+
+
+def omini_field_ok(p, field):
+    if not omini_field_enabled(field):
+        return None
+    if p is None:
+        return False
+    entry = _omini_registry_entry(field)
+    if entry is None:
+        return None
+    kind = entry["kind"]
+    if kind in ("monitor",):
+        return None
+    if kind == "version":
+        expect = (load_cfg.mcu_ver or "").strip()
+        actual = p.get("dev_ver")
+        if not actual:
+            return False
+        return actual == expect
+    if kind == "string":
+        expect = str(getattr(load_cfg, entry.get("expect_attr", ""), "")).strip()
+        actual = p.get("base_config")
+        if not actual:
+            return False
+        return actual == expect
+    if kind == "expected":
+        if entry.get("step4_module"):
+            return None
+        expect = int(getattr(load_cfg, entry.get("expect_attr", ""), 0))
+        return int(p.get(field, -1)) == expect
+    if kind == "range":
+        lo = int(getattr(load_cfg, entry["min_attr"], 0))
+        hi = int(getattr(load_cfg, entry["max_attr"], 0))
+        if lo > hi:
+            lo, hi = hi, lo
+        val = p.get(field)
+        if val is None:
+            return False
+        return lo <= int(val) <= hi
+    if kind == "range_suction":
+        slo, shi = _omini_suction_threshold_10pa()
+        val = p.get("suction_10pa")
+        if val is None:
+            return False
+        return slo <= int(val) <= shi
+    return None
+
+
+def omini_step4_monitor_phase(p):
+    return p is not None and int(p.get("step", 0)) == 4
+
+
+def omini_step4_substep_index(field):
+    enabled = omini_step4_enabled_modules()
+    idx = 0
+    for f, *_rest in OMINI_STEP4_SUBSTEPS:
+        if f not in enabled:
+            continue
+        if f == field:
+            return idx
+        idx += 1
+    return -1
+
+
+def omini_step4_current_substep(p):
+    for field, *_rest in OMINI_STEP4_SUBSTEPS:
+        if field not in omini_step4_enabled_modules():
+            continue
+        if int(p.get(field, 0)) != 3:
+            return field
+    return None
+
+
+def omini_module_step4_ui(p, field):
+    meta = next(x for x in OMINI_STEP4_SUBSTEPS if x[0] == field)
+    v = int(p.get(field, 0))
+    if v == 0:
+        return "untested", ""
+    if v == 1:
+        return "fail", meta[2]
+    if v == 2:
+        return "fail", meta[3]
+    if v == 3:
+        return "pass", str(v)
+    return "fail", str(v)
+
+
+def omini_module_field_status(p, field):
+    if p is None:
+        return "untested"
+    step = int(p.get("step", 0))
+    if step < 4:
+        return "untested"
+    v = int(p.get(field, 0))
+    if step == 4:
+        if v == 0:
+            return "untested"
+        if v in (1, 2):
+            return False
+        if v == 3:
+            return True
+        return False
+    return True if v == 3 else False
+
+
+def omini_step4_flow_complete():
+    global omini_max_step, omini_last_p
+    mods = omini_step4_enabled_modules()
+    if not mods:
+        return True
+    if omini_max_step < 4:
+        return True
+    if omini_last_p is None:
+        return False
+    return all(int(omini_last_p.get(f, 0)) == 3 for f in mods)
+
+
+def omini_step4_notify(p):
+    global omini_last_step4_notify_key
+    if not omini_step4_monitor_phase(p):
+        return
+    if not omini_step4_enabled_modules():
+        return
+    mf = MainFrame.main_frame
+    if mf is None:
+        return
+    cur = omini_step4_current_substep(p)
+    if cur is None:
+        notify_key = "led"
+        second = OMINI_STEP4_LED_HINT
+    else:
+        v = int(p.get(cur, 0))
+        meta = next(x for x in OMINI_STEP4_SUBSTEPS if x[0] == cur)
+        if v == 1:
+            second = meta[2]
+        elif v == 2:
+            second = meta[3]
+        else:
+            second = meta[4]
+        notify_key = "{}:{}".format(cur, v)
+    if notify_key == omini_last_step4_notify_key:
+        return
+    omini_last_step4_notify_key = notify_key
+    mf.up_notification_ui(second=second, third=OMINI_STEP4_ORDER_HINT, color=wx.RED)
+
+
+def omini_field_status(p, field):
+    if p is None:
+        return "untested"
+    entry = _omini_registry_entry(field)
+    if entry is None:
+        return "untested"
+    if entry.get("step4_module"):
+        return omini_module_field_status(p, field)
+    if entry["kind"] == "monitor":
+        if not omini_field_active(p.get("step"), field):
+            return "untested"
+        return None
+    if not omini_field_active(p.get("step"), field):
+        return "untested"
+    return omini_field_ok(p, field)
+
+
+def omini_field_status_finalize(p, field):
+    if p is None:
+        return "untested"
+    step = int(p.get("step", 0))
+    entry = _omini_registry_entry(field)
+    if entry is None:
+        return "untested"
+    if step < 7:
+        return omini_field_status(p, field)
+    if entry.get("step4_module"):
+        return True if int(p.get(field, 0)) == 3 else False
+    if entry["kind"] == "monitor":
+        return None
+    if not omini_field_active(step, field):
+        return "untested"
+    return omini_field_ok(p, field)
+
+
+def omini_proto_yaml_realtime_ok(p):
+    if p is None or omini_89_mes_done or omini_realtime_ng:
+        return True
+    step = int(p.get("step", 0))
+    if step == 4:
+        return True
+    for entry in OMINI_FIELD_REGISTRY:
+        field = entry["field"]
+        if entry["kind"] in ("monitor",):
+            continue
+        if entry.get("step4_module"):
+            continue
+        if not omini_field_enabled(field):
+            continue
+        if not omini_field_active(step, field):
+            continue
+        ok = omini_field_ok(p, field)
+        if ok is False:
+            return False
+    return True
+
+
+def omini_proto_yaml_all_items_ok(p):
+    if p is None:
+        return False
+    if int(p.get("step", 0)) < 7:
+        return False
+    for entry in OMINI_FIELD_REGISTRY:
+        field = entry["field"]
+        if entry["kind"] in ("monitor",):
+            continue
+        if entry.get("step4_module"):
+            continue
+        if not omini_field_enabled(field):
+            continue
+        if not omini_field_active(7, field):
+            continue
+        ok = omini_field_ok(p, field)
+        if ok is False:
+            return False
+    if omini_max_step >= 4:
+        for f in omini_step4_enabled_modules():
+            if int(p.get(f, 0)) != 3:
+                return False
+    return True
+
+
+def omini_proto_yaml_finalize_ok(p):
+    global omini_max_step
+    if omini_max_step < 7:
+        return False
+    if p is None:
+        return False
+    if int(p.get("step", 0)) < 7:
+        return False
+    return omini_proto_yaml_all_items_ok(p)
+
+
+def _omini_format_field_value(p, field):
+    if field == "dev_ver":
+        return p.get("dev_ver") or ""
+    if field == "base_config":
+        return p.get("base_config") or ""
+    if field == "suction_10pa":
+        return _rv30_fmt_suction_kpa(p.get("suction_10pa"))
+    if field in ("ir_l", "ir_r", "ir_n"):
+        return _rv30_fmt_ir_byte(p.get(field))
+    return str(p.get(field, ""))
+
+
+def _omini_proto_ui_rows(p):
+    rows = []
+    for entry in OMINI_FIELD_REGISTRY:
+        if not omini_field_enabled(entry["field"]):
+            continue
+        field = entry["field"]
+        rows.append((entry["ui"], field, _omini_format_field_value(p, field)))
+    return rows
+
+
+def omini_proto_apply_test_ui_row(p, ui_name, field, val, finalize=False):
+    entry = _omini_registry_entry(field)
+    if finalize:
+        st = omini_field_status_finalize(p, field)
+    else:
+        if omini_step4_monitor_phase(p) and entry and entry.get("step4_module"):
+            cur = omini_step4_current_substep(p)
+            enabled = omini_step4_enabled_modules()
+            cur_idx = len(enabled) if cur is None else omini_step4_substep_index(cur)
+            my_idx = omini_step4_substep_index(field)
+            if my_idx <= cur_idx or int(p.get(field, 0)) == 3:
+                res, show_val = omini_module_step4_ui(p, field)
+            else:
+                res, show_val = "untested", ""
+            MainFrame.main_frame.up_test_ui(name=ui_name, result=res, value=show_val)
+            return
+        if entry and entry["kind"] == "monitor" and omini_field_active(p.get("step"), field):
+            MainFrame.main_frame.up_test_ui(name=ui_name, result="monitor", value=val)
+            return
+        st = omini_field_status(p, field)
+    if st == "untested":
+        res, show_val = "untested", ""
+    elif st is False:
+        res, show_val = "fail", val
+    elif st is True:
+        res, show_val = "pass", val
+    else:
+        res, show_val = "monitor", val
+    MainFrame.main_frame.up_test_ui(name=ui_name, result=res, value=show_val)
+
+
+def omini_proto_refresh_test_ui(p, finalize=False):
+    if p is None or MainFrame.main_frame is None:
+        return
+    for ui_name, field, val in _omini_proto_ui_rows(p):
+        omini_proto_apply_test_ui_row(p, ui_name, field, val, finalize=finalize)
+    if not finalize and omini_step4_monitor_phase(p):
+        omini_step4_notify(p)
+
+
+def omini_proto_refresh_test_ui_callafter(p):
+    wx.CallAfter(omini_proto_refresh_test_ui, p)
+
+
+def omini_proto_add_reports():
+    for entry in OMINI_FIELD_REGISTRY:
+        if not omini_field_enabled(entry["field"]):
+            continue
+        field = entry["field"]
+        kind = entry["kind"]
+        name = entry["mes"]
+        if omini_last_p is None:
+            mes_run.add_report(name=name, result="NG", value="")
+            continue
+        if kind == "version":
+            ok = omini_field_ok(omini_last_p, field)
+            mes_run.add_report(
+                name=name, result="OK" if ok else "NG", value=omini_last_p.get("dev_ver") or "",
+                val_min=load_cfg.mcu_ver, val_max=load_cfg.mcu_ver)
+            continue
+        if kind == "string":
+            ok = omini_field_ok(omini_last_p, field)
+            expect = str(getattr(load_cfg, entry.get("expect_attr", ""), "")).strip()
+            mes_run.add_report(
+                name=name, result="OK" if ok else "NG",
+                value=omini_last_p.get("base_config") or "",
+                val_min=expect, val_max=expect)
+            continue
+        if kind == "expected":
+            ok = omini_field_ok(omini_last_p, field) if not entry.get("step4_module") else (
+                True if int(omini_last_p.get(field, 0)) == 3 else False)
+            if entry.get("step4_module"):
+                ok = True if int(omini_last_p.get(field, 0)) == 3 else False
+                val = str(omini_last_p.get(field, ""))
+                expect = str(int(getattr(load_cfg, entry.get("expect_attr", ""), 0)))
+                mes_run.add_report(name=name, result="OK" if ok else "NG",
+                                   value=val, val_min=expect, val_max=expect)
+            else:
+                expect = int(getattr(load_cfg, entry.get("expect_attr", ""), 0))
+                val = omini_last_p.get(field)
+                mes_run.add_report(name=name, result="OK" if ok else "NG",
+                                   value=_rv30_fmt_ir_byte(val) if field.startswith("ir_") else str(val),
+                                   val_min=str(expect), val_max=str(expect))
+            continue
+        if kind == "range_suction":
+            ok = omini_field_ok(omini_last_p, field)
+            slo, shi = _omini_suction_threshold_10pa()
+            mes_run.add_report(
+                name=name, result="OK" if ok else "NG",
+                value=_rv30_fmt_suction_kpa(omini_last_p.get("suction_10pa")),
+                val_min=_rv30_fmt_suction_kpa(slo), val_max=_rv30_fmt_suction_kpa(shi))
+            continue
+        if kind == "range":
+            ok = omini_field_ok(omini_last_p, field)
+            lo = int(getattr(load_cfg, entry["min_attr"], 0))
+            hi = int(getattr(load_cfg, entry["max_attr"], 0))
+            if lo > hi:
+                lo, hi = hi, lo
+            mes_run.add_report(
+                name=name, result="OK" if ok else "NG",
+                value=str(omini_last_p.get(field, "")),
+                val_min=str(lo), val_max=str(hi))
+            continue
+        if kind == "monitor":
+            mes_run.add_report(name=name, result="", value=str(omini_last_p.get(field, "")))
+
+
+def omini_proto_finalize_88(dev, dat):
+    global test_end_time, omini_session_state, omini_last_p, omini_89_mes_done
+    test_end_time = datetime.now()
+    res_byte = dat[0] if len(dat) else 0xFF
+    if res_byte == 0x04:
+        if not omini_89_mes_done:
+            mes_run.add_report(name="基站通讯", result="NG", value="治具与基站通讯失败")
+            mes_ret = mes_run.send_report(test_start_time, test_end_time, check_sn_str, "NG")
+            omini_89_mes_done = True
+        else:
+            mes_ret = False
+        if mes_ret:
+            wx.CallAfter(MainFrame.main_frame.up_notification_ui,
+                         second="治具与基站通讯失败", color=wx.RED)
+        clear_sn_save_list()
+        omini_session_state = OMINI_SESS_FINISHED
+        omini_proto_reset_to_idle()
+        return
+    if omini_89_mes_done:
+        wx.CallAfter(MainFrame.main_frame.up_notification_ui, second="测试失败", color=wx.RED)
+        omini_session_state = OMINI_SESS_FINISHED
+        clear_sn_save_list()
+        omini_proto_reset_to_idle()
+        return
+    if res_byte != 0x03:
+        mes_run.add_report(name="结束码", result="NG", value=hex(res_byte))
+        mes_ret = mes_run.send_report(test_start_time, test_end_time, check_sn_str, "NG")
+        omini_89_mes_done = True
+        if mes_ret:
+            wx.CallAfter(MainFrame.main_frame.up_notification_ui,
+                         second="测试结束 NG（结束码 {}）".format(hex(res_byte)), color=wx.RED)
+        clear_sn_save_list()
+        omini_session_state = OMINI_SESS_FINISHED
+        omini_proto_reset_to_idle()
+        return
+    p = omini_last_p
+    mes_ok = (
+        p is not None
+        and not omini_realtime_ng
+        and omini_proto_yaml_finalize_ok(p)
+        and omini_step4_flow_complete()
+    )
+    omini_proto_add_reports()
+    if mes_ok:
+        res_display_str = "测试完成(综合判定 PASS)"
+        text_color = wx.GREEN
+        mes_ret = mes_run.send_report(test_start_time, test_end_time, check_sn_str, "OK")
+    else:
+        res_display_str = "测试结束(综合判定 NG)"
+        text_color = wx.RED
+        mes_ret = mes_run.send_report(test_start_time, test_end_time, check_sn_str, "NG")
+    omini_89_mes_done = True
+    if p is not None:
+        def _finalize_ui_refresh():
+            for ui_name, field, val in _omini_proto_ui_rows(p):
+                entry = _omini_registry_entry(field)
+                if (entry and entry.get("step4_module")
+                        and int(p.get("step", 0)) == 4 and not mes_ok):
+                    res, show_val = omini_module_step4_ui(p, field)
+                    MainFrame.main_frame.up_test_ui(name=ui_name, result=res, value=show_val)
+                    continue
+                if mes_ok and entry and entry["kind"] == "monitor":
+                    MainFrame.main_frame.up_test_ui(name=ui_name, result="pass", value=val)
+                    continue
+                omini_proto_apply_test_ui_row(p, ui_name, field, val, finalize=True)
+        wx.CallAfter(_finalize_ui_refresh)
+    if mes_ret:
+        wx.CallAfter(MainFrame.main_frame.up_notification_ui, second=res_display_str, color=text_color)
+    omini_session_state = OMINI_SESS_FINISHED
+    clear_sn_save_list()
+    omini_proto_reset_to_idle()
+
+
+def Omini_finished_product_mode(dev, cmd, dat):
+    global test_start_time, check_sn_enable, ver_res, dev_ver
+    global omini_session_state, omini_last_step, omini_max_step, omini_last_p
+    global omini_last_step4_notify_key, omini_89_mes_done, omini_realtime_ng
+    if len(dat) <= 0:
+        print("[OMINI-020] len=0 无有效数据")
+        return
+    if cmd == 0x66:
+        if dat[0] == 0x00:
+            test_start_time = datetime.now()
+            mes_run.clear_report()
+            tool.clear_queue(barcode_q)
+            check_sn_enable = True
+            omini_last_step = -1
+            omini_max_step = 0
+            omini_last_step4_notify_key = ""
+            omini_last_p = None
+            omini_89_mes_done = False
+            omini_realtime_ng = False
+            omini_session_state = OMINI_SESS_WAIT_SN
+            print("[OMINI-020] 请扫码")
+            wx.CallAfter(MainFrame.main_frame.reset_ui)
+            wx.CallAfter(MainFrame.main_frame.up_notification_ui, second="请扫码")
+    elif cmd == 0x77:
+        if omini_session_state != OMINI_SESS_RUNNING:
+            return
+        print("[OMINI-020] 0x77 len=" + str(len(dat)))
+        p = omini_proto_parse_77_apply_globals(dat)
+        wx.CallAfter(MainFrame.main_frame.up_ver_ui, dev_ver)
+        if p is None:
+            return
+        omini_last_p = p
+        st = int(p["step"])
+        if st > omini_max_step:
+            omini_max_step = st
+        if st != omini_last_step:
+            omini_last_step = st
+            if st == 4:
+                omini_last_step4_notify_key = ""
+            else:
+                wx.CallAfter(MainFrame.main_frame.up_notification_ui,
+                             second="治具步骤：" + str(st), color=wx.BLUE)
+        omini_proto_refresh_test_ui_callafter(p)
+        if not omini_proto_yaml_realtime_ok(p):
+            omini_proto_realtime_fail(dev, "yaml阈值:" + str(p))
+            return
+    elif cmd == 0x88:
+        print("[OMINI-020] 测试结束帧 dat[0]=" + str(dat[0] if dat else None))
+        omini_proto_finalize_88(dev, dat)
+    elif cmd == 0x68:
+        print("[OMINI-020] 忽略 0x68 阈值上传 len=" + str(len(dat)))
+    else:
+        print("[OMINI-020] 未处理命令 cmd=" + hex(cmd))
 
 
 # ---------- #[RV50-018-PCBA-PROTO] RV50 基站 PCBA（device_type=018，帧 dev=0x12）----------

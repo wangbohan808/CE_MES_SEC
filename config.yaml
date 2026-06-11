@@ -35,8 +35,8 @@ rv50_base_config_expected: "001.002.003"  # RV50 015/016 基站配置码（格�
 #   102  条码比对                  103  配件纸箱条码  → §103
 #   104  打高压 ZC7122D            105  耐高压
 #   106  称重工位                  → §106
-# --- Omini 基站（帧格式同 RV50 对应工位，判据独立 ominiair_* / ominiwater_*）---
-#   020  Omini 基站全功能测试      → 待实现
+# --- Omini 基站（帧格式同 RV50 对应工位，判据独立 omini_* / ominiair_* / ominiwater_*）---
+#   020  Omini 基站全功能测试      → §020（帧设备字节 0x14）；0x77 数据区 38 字节；0x88：03 正常结束 / 04 基站通讯失败
 #   021  Omini 基站过气测试        → §021（帧设备字节 0x15）；0x77 数据区 13 字节；0x88：03 正常结束 / 04 基站通讯失败
 #   022  Omini 基站过水测试        → §022（帧设备字节 0x16）；0x77 数据区 22 字节；0x88：03 正常结束 / 04 基站通讯失败
 
@@ -166,6 +166,43 @@ rv50air_mop_kpa_min: 20
 rv50air_mop_kpa_max: 230
 rv50air_duty_kpa_min: -30
 rv50air_duty_kpa_max: -18
+
+# -----------------------------------------------------------------------------
+# §020  device_type=020  Omini 基站全功能测试
+# -----------------------------------------------------------------------------
+# #[OMINI-020-PROTO] 0x77 数据区 38 字节（布局同 §017）；0x88：03=治具正常结束；04=基站通讯失败
+# 某项 min/max 均为 0 或 expected 为 0 → 不参与比较、不显示 UI、不上报 MES
+# MCU 版本用公共 mcu_version；配置码用 omini_base_config_expected（可选）
+# 过程实时阈值 NG 发 0x89[0x03]（step=4 除外）；扫码门闸失败 0x58+0x89，不上报 MES
+
+# omini_charge_min: 200
+# omini_charge_max: 3000
+# omini_ir_l: 0x44
+# omini_ir_r: 0x42
+# omini_ir_n: 0x48
+# omini_clear_tank_expected: 0x03
+# omini_duty_tank_expected: 0x03
+# omini_dust_expected: 0x03
+# omini_clean_base_expected: 0x03
+# omini_suction_kpa_min: 17
+# omini_suction_kpa_max: 30
+# omini_clean_pump_min: 50
+# omini_clean_pump_max: 350
+# omini_vacuum_pump_min: 50
+# omini_vacuum_pump_max: 200
+# omini_base_level_up_min: 3000
+# omini_base_level_up_max: 4095
+# omini_base_level_down_min: 0
+# omini_base_level_down_max: 1000
+# omini_em_valve_min: 100
+# omini_em_valve_max: 500
+# omini_wash_pump_min: 50
+# omini_wash_pump_max: 350
+# omini_turbidity_min: 5000
+# omini_turbidity_max: 15000
+# omini_hot_diff_min: 20
+# omini_hot_diff_max: 250
+# omini_base_config_expected: "001.002.003"
 
 # -----------------------------------------------------------------------------
 # §021  device_type=021  Omini 基站过气测试
