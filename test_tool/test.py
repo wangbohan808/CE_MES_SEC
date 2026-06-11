@@ -112,6 +112,19 @@ class LoadCfg:
     ominiair_duty_kpa_min: float = 0.0
     ominiair_duty_kpa_max: float = 0.0
     ominiair_base_config_expected: str = ""
+    # #[OMINIWATER-022-PROTO] device_type=022 Omini 基站过水（帧 dev=0x16）；-1=不参与比较
+    ominiwater_clear_volume_expected: int = -1
+    ominiwater_duty_volume_expected: int = -1
+    ominiwater_left_mop_volume_expected: int = -1
+    ominiwater_right_mop_volume_expected: int = -1
+    ominiwater_cleaner_level_expected: int = -1
+    ominiwater_left_mop_temp_min: int = 0
+    ominiwater_left_mop_temp_max: int = 0
+    ominiwater_right_mop_temp_min: int = 0
+    ominiwater_right_mop_temp_max: int = 0
+    ominiwater_base_hot_temp_min: int = 0
+    ominiwater_base_hot_temp_max: int = 0
+    ominiwater_base_config_expected: str = ""
     # #[RV50-016-WATER-PROTO] device_type=016 基站过水（帧 dev=0x10）
     rv50water_volume_expected: int = 3
     rv50water_cleaner_level_expected: int = 3
@@ -248,6 +261,18 @@ ominiair_session_state = OMINIAIR_SESS_IDLE
 ominiair_last_step = -1
 ominiair_last_p = None
 ominiair_got_step3 = False
+
+# #[OMINIWATER-022-PROTO] Omini 基站过水 device_type=022，帧设备字节 0x16
+OMINIWATER_77_DATA_LEN = 22
+OMINIWATER_SESS_IDLE = 0
+OMINIWATER_SESS_WAIT_SN = 1
+OMINIWATER_SESS_RUNNING = 2
+OMINIWATER_SESS_FINISHED = 3
+ominiwater_session_state = OMINIWATER_SESS_IDLE
+ominiwater_last_step = -1
+ominiwater_last_p = None
+ominiwater_got_step3 = False
+ominiwater_last_level_notify = -1
 
 # #[RV50-016-WATER-PROTO] RV50 基站过水 device_type=016，帧设备字节 0x10
 RV50WATER_77_DATA_LEN = 22
@@ -608,6 +633,10 @@ def barcode_check_process():
     global ominiair_session_state
     global ominiair_last_step
     global ominiair_got_step3
+    global ominiwater_session_state
+    global ominiwater_last_step
+    global ominiwater_got_step3
+    global ominiwater_last_level_notify
     global rv50water_session_state
     global rv50water_last_step
     global rv50water_got_step3
@@ -759,6 +788,11 @@ def barcode_check_process():
                     ominiair_session_state = OMINIAIR_SESS_RUNNING
                     ominiair_last_step = -1
                     ominiair_got_step3 = False
+                elif int(load_cfg.dev) == 22:  # #[OMINIWATER-022-PROTO]
+                    ominiwater_session_state = OMINIWATER_SESS_RUNNING
+                    ominiwater_last_step = -1
+                    ominiwater_got_step3 = False
+                    ominiwater_last_level_notify = -1
                 elif int(load_cfg.dev) == 16:  # #[RV50-016-WATER-PROTO]
                     rv50water_session_state = RV50WATER_SESS_RUNNING
                     rv50water_last_step = -1
@@ -946,6 +980,44 @@ def load_config():
     load_cfg.ominiair_base_config_expected = str(
         config.get("ominiair_base_config_expected",
                    getattr(load_cfg, "ominiair_base_config_expected", ""))).strip()
+
+    # #[OMINIWATER-022-PROTO] 过水判据；-1 表示不参与比较
+    load_cfg.ominiwater_clear_volume_expected = int(
+        config.get("ominiwater_clear_volume_expected",
+                   getattr(load_cfg, "ominiwater_clear_volume_expected", -1)))
+    load_cfg.ominiwater_duty_volume_expected = int(
+        config.get("ominiwater_duty_volume_expected",
+                   getattr(load_cfg, "ominiwater_duty_volume_expected", -1)))
+    load_cfg.ominiwater_left_mop_volume_expected = int(
+        config.get("ominiwater_left_mop_volume_expected",
+                   getattr(load_cfg, "ominiwater_left_mop_volume_expected", -1)))
+    load_cfg.ominiwater_right_mop_volume_expected = int(
+        config.get("ominiwater_right_mop_volume_expected",
+                   getattr(load_cfg, "ominiwater_right_mop_volume_expected", -1)))
+    load_cfg.ominiwater_cleaner_level_expected = int(
+        config.get("ominiwater_cleaner_level_expected",
+                   getattr(load_cfg, "ominiwater_cleaner_level_expected", -1)))
+    load_cfg.ominiwater_left_mop_temp_min = int(
+        config.get("ominiwater_left_mop_temp_min",
+                   getattr(load_cfg, "ominiwater_left_mop_temp_min", 0)))
+    load_cfg.ominiwater_left_mop_temp_max = int(
+        config.get("ominiwater_left_mop_temp_max",
+                   getattr(load_cfg, "ominiwater_left_mop_temp_max", 0)))
+    load_cfg.ominiwater_right_mop_temp_min = int(
+        config.get("ominiwater_right_mop_temp_min",
+                   getattr(load_cfg, "ominiwater_right_mop_temp_min", 0)))
+    load_cfg.ominiwater_right_mop_temp_max = int(
+        config.get("ominiwater_right_mop_temp_max",
+                   getattr(load_cfg, "ominiwater_right_mop_temp_max", 0)))
+    load_cfg.ominiwater_base_hot_temp_min = int(
+        config.get("ominiwater_base_hot_temp_min",
+                   getattr(load_cfg, "ominiwater_base_hot_temp_min", 0)))
+    load_cfg.ominiwater_base_hot_temp_max = int(
+        config.get("ominiwater_base_hot_temp_max",
+                   getattr(load_cfg, "ominiwater_base_hot_temp_max", 0)))
+    load_cfg.ominiwater_base_config_expected = str(
+        config.get("ominiwater_base_config_expected",
+                   getattr(load_cfg, "ominiwater_base_config_expected", ""))).strip()
 
     # #[RV50-016-WATER-PROTO] 过水判据（水量/液位为 u16 或单字节期望值；温度为 ADC 含端点）
     load_cfg.rv50water_volume_expected = int(
@@ -1272,6 +1344,8 @@ def test_cmd_handle(dev, cmd, dat):
             RV50_air_mode(dev, cmd, dat)
         elif int(dev) == 21:  # #[OMINIAIR-021-PROTO] 帧设备字节 0x15
             Omini_air_mode(dev, cmd, dat)
+        elif int(dev) == 22:  # #[OMINIWATER-022-PROTO] 帧设备字节 0x16
+            Omini_water_mode(dev, cmd, dat)
         elif int(dev) == 17:  # #[RV50-017-PROTO]
             RV50_finished_product_mode(dev, cmd, dat)
         elif int(dev) == 18:  # #[RV50-018-PCBA-PROTO] 帧设备字节 0x12
@@ -5353,6 +5427,406 @@ def Omini_air_mode(dev, cmd, dat):
             ominiair_step_notify(st)
     elif cmd == 0x88:
         ominiair_finalize_88(dev, dat)
+
+
+# ---------- #[OMINIWATER-022-PROTO] Omini 基站过水（device_type=022，帧 dev=0x16）----------
+OMINIWATER_UI_LABELS = {
+    "clear_water_volume": "清水通路水量：",
+    "duty_water_volume": "污水通路水量：",
+    "left_mop_water_volume": "左拖布水量：",
+    "right_mop_water_volume": "右拖布水量：",
+    "left_mop_temperature": "左拖布温度adc：",
+    "right_mop_temperature": "右拖布温度adc：",
+    "cleaner_liquid_level": "清洁剂液位：",
+    "base_hot_water_temp": "基站热水温度adc：",
+    "base_station_ver": "基站版本：",
+    "base_station_config": "基站配置码：",
+}
+
+OMINIWATER_FIELD_REGISTRY = [
+    {"field": "clear_vol", "kind": "exact_int", "ui": "clear_water_volume",
+     "mes": "清水通路过水", "parse_key": "clear_water_volume",
+     "expect_attr": "ominiwater_clear_volume_expected"},
+    {"field": "duty_vol", "kind": "exact_int", "ui": "duty_water_volume",
+     "mes": "污水通路过水", "parse_key": "duty_water_volume",
+     "expect_attr": "ominiwater_duty_volume_expected"},
+    {"field": "left_mop_vol", "kind": "exact_int", "ui": "left_mop_water_volume",
+     "mes": "左拖布过水", "parse_key": "left_mop_water_volume",
+     "expect_attr": "ominiwater_left_mop_volume_expected"},
+    {"field": "right_mop_vol", "kind": "exact_int", "ui": "right_mop_water_volume",
+     "mes": "右拖布过水", "parse_key": "right_mop_water_volume",
+     "expect_attr": "ominiwater_right_mop_volume_expected"},
+    {"field": "left_mop_temp", "kind": "range_int", "ui": "left_mop_temperature",
+     "mes": "左拖布温度adc", "parse_key": "left_mop_temperature",
+     "min_attr": "ominiwater_left_mop_temp_min", "max_attr": "ominiwater_left_mop_temp_max"},
+    {"field": "right_mop_temp", "kind": "range_int", "ui": "right_mop_temperature",
+     "mes": "右拖布温度adc", "parse_key": "right_mop_temperature",
+     "min_attr": "ominiwater_right_mop_temp_min", "max_attr": "ominiwater_right_mop_temp_max"},
+    {"field": "cleaner_level", "kind": "exact_int", "ui": "cleaner_liquid_level",
+     "mes": "清洁剂液位", "parse_key": "cleaner_liquid_level",
+     "expect_attr": "ominiwater_cleaner_level_expected"},
+    {"field": "base_hot_temp", "kind": "range_int", "ui": "base_hot_water_temp",
+     "mes": "基站热水温度adc", "parse_key": "base_hot_water_temp",
+     "min_attr": "ominiwater_base_hot_temp_min", "max_attr": "ominiwater_base_hot_temp_max"},
+    {"field": "base_ver", "kind": "version", "ui": "base_station_ver", "mes": "基站版本",
+     "parse_key": "base_ver"},
+    {"field": "base_config", "kind": "string", "ui": "base_station_config", "mes": "基站配置码",
+     "parse_key": "base_config", "expect_attr": "ominiwater_base_config_expected"},
+]
+
+
+def _ominiwater_registry_entry(field):
+    for entry in OMINIWATER_FIELD_REGISTRY:
+        if entry["field"] == field:
+            return entry
+    return None
+
+
+def _ominiwater_range_enabled(lo, hi):
+    return not (int(lo) == 0 and int(hi) == 0)
+
+
+def _ominiwater_exact_enabled(expect_attr):
+    return int(getattr(load_cfg, expect_attr, -1)) >= 0
+
+
+def ominiwater_field_enabled(field):
+    entry = _ominiwater_registry_entry(field)
+    if entry is None:
+        return False
+    kind = entry["kind"]
+    if kind == "exact_int":
+        return _ominiwater_exact_enabled(entry.get("expect_attr", ""))
+    if kind == "range_int":
+        lo = getattr(load_cfg, entry["min_attr"], 0)
+        hi = getattr(load_cfg, entry["max_attr"], 0)
+        return _ominiwater_range_enabled(lo, hi)
+    if kind == "version":
+        return bool((load_cfg.mcu_ver or "").strip())
+    if kind == "string":
+        expect = getattr(load_cfg, entry.get("expect_attr", ""), "")
+        return bool(str(expect).strip())
+    return False
+
+
+def ominiwater_build_item_result():
+    items = []
+    for entry in OMINIWATER_FIELD_REGISTRY:
+        if ominiwater_field_enabled(entry["field"]):
+            ui = entry["ui"]
+            items.append({ui: [OMINIWATER_UI_LABELS[ui], "", "white"]})
+    return items
+
+
+def ominiwater_reset_session():
+    global ominiwater_session_state, ominiwater_last_step, ominiwater_last_p, ominiwater_got_step3
+    global ominiwater_last_level_notify
+    ominiwater_session_state = OMINIWATER_SESS_IDLE
+    ominiwater_last_step = -1
+    ominiwater_last_p = None
+    ominiwater_got_step3 = False
+    ominiwater_last_level_notify = -1
+
+
+def ominiwater_int_limits(field):
+    entry = _ominiwater_registry_entry(field)
+    if entry is None:
+        return 0, 0
+    return (
+        int(getattr(load_cfg, entry["min_attr"], 0)),
+        int(getattr(load_cfg, entry["max_attr"], 0)),
+    )
+
+
+def ominiwater_field_ok(p, field):
+    if not ominiwater_field_enabled(field):
+        return None
+    if p is None:
+        return False
+    entry = _ominiwater_registry_entry(field)
+    if entry is None:
+        return None
+    kind = entry["kind"]
+    if kind == "exact_int":
+        expect = int(getattr(load_cfg, entry.get("expect_attr", ""), -1))
+        actual = p.get(entry.get("parse_key"))
+        if actual is None:
+            return False
+        return int(actual) == expect
+    if kind == "range_int":
+        val = p.get(entry.get("parse_key"))
+        if val is None:
+            return False
+        lo, hi = ominiwater_int_limits(field)
+        if lo > hi:
+            lo, hi = hi, lo
+        v = int(val)
+        return lo <= v <= hi
+    if kind == "version":
+        expect = (load_cfg.mcu_ver or "").strip()
+        actual = p.get("base_ver")
+        if not actual:
+            return False
+        return actual == expect
+    if kind == "string":
+        expect = str(getattr(load_cfg, entry.get("expect_attr", ""), "")).strip()
+        actual = p.get("base_config")
+        if not actual:
+            return False
+        return actual == expect
+    return None
+
+
+def ominiwater_all_ok(p):
+    if p is None:
+        return False
+    for entry in OMINIWATER_FIELD_REGISTRY:
+        ok = ominiwater_field_ok(p, entry["field"])
+        if ok is False:
+            return False
+    return True
+
+
+def ominiwater_step_notify(step):
+    st = int(step)
+    if st == 1:
+        msg = "进入产测"
+    elif st == 3:
+        msg = "最终判断结果"
+    else:
+        msg = "治具步骤：" + str(st)
+    wx.CallAfter(MainFrame.main_frame.up_notification_ui, second=msg, color=wx.BLUE)
+
+
+def ominiwater_level_notify(level):
+    global ominiwater_last_level_notify
+    lv = int(level) & 0xFF
+    if lv == ominiwater_last_level_notify:
+        return
+    ominiwater_last_level_notify = lv
+    if lv == 0x01:
+        msg = "清洁液不在位，请插入"
+        color = wx.RED
+    elif lv == 0x02:
+        msg = "清洁液在位，请取出"
+        color = wx.RED
+    elif lv == 0x03:
+        msg = "清洁液盒通过，请取出"
+        color = wx.GREEN
+    else:
+        msg = "请注意后续操作提示"
+        color = wx.RED
+    wx.CallAfter(MainFrame.main_frame.up_notification_ui, second=msg, color=color)
+
+
+def ominiwater_ui_result_for_field(field, p, finalize):
+    entry = _ominiwater_registry_entry(field)
+    if entry is None:
+        return "monitor", ""
+    kind = entry["kind"]
+    if kind in ("exact_int", "range_int"):
+        val = p.get(entry.get("parse_key")) if p else None
+        disp = "" if val is None else str(val)
+        if not finalize:
+            return "monitor", disp
+        ok = ominiwater_field_ok(p, field)
+        if ok is None or ok is True:
+            return "pass", disp
+        return "fail", disp
+    if kind == "version":
+        return ominiwater_ui_result_for_string("base_ver", p.get("base_ver") if p else None, finalize)
+    if kind == "string":
+        return ominiwater_ui_result_for_string("base_config", p.get("base_config") if p else None, finalize)
+    return "monitor", ""
+
+
+def ominiwater_string_field_ok(field, actual):
+    if field == "base_ver":
+        expect = (load_cfg.mcu_ver or "").strip()
+    elif field == "base_config":
+        expect = (load_cfg.ominiwater_base_config_expected or "").strip()
+    else:
+        return None
+    if not expect:
+        return None
+    if not actual:
+        return False
+    return actual == expect
+
+
+def ominiwater_ui_result_for_string(field, value, finalize):
+    disp = value or ""
+    if not finalize:
+        return "monitor", disp
+    ok = ominiwater_string_field_ok(field, value)
+    if ok is None or ok is True:
+        return "pass", disp
+    return "fail", disp
+
+
+def _ominiwater_refresh_test_ui_impl(p, finalize):
+    if p is None:
+        return
+    for entry in OMINIWATER_FIELD_REGISTRY:
+        field = entry["field"]
+        if not ominiwater_field_enabled(field):
+            continue
+        res, val = ominiwater_ui_result_for_field(field, p, finalize)
+        MainFrame.main_frame.up_test_ui(name=entry["ui"], result=res, value=val)
+
+
+def ominiwater_refresh_test_ui_callafter(p, finalize=False):
+    wx.CallAfter(_ominiwater_refresh_test_ui_impl, p, finalize)
+
+
+def ominiwater_add_string_report(name, field, value):
+    ok = ominiwater_string_field_ok(field, value)
+    if ok is None:
+        return
+    result = "OK" if ok else "NG"
+    if field == "base_ver":
+        expect = load_cfg.mcu_ver
+    else:
+        expect = load_cfg.ominiwater_base_config_expected
+    mes_run.add_report(
+        name=name, result=result, value=value or "",
+        val_min=expect, val_max=expect,
+    )
+
+
+def ominiwater_add_reports(p):
+    if p is None:
+        for entry in OMINIWATER_FIELD_REGISTRY:
+            if not ominiwater_field_enabled(entry["field"]):
+                continue
+            mes_run.add_report(name=entry["mes"], result="NG", value="无数据")
+        return
+    for entry in OMINIWATER_FIELD_REGISTRY:
+        field = entry["field"]
+        if not ominiwater_field_enabled(field):
+            continue
+        kind = entry["kind"]
+        if kind == "exact_int":
+            val = p.get(entry.get("parse_key"))
+            expect = int(getattr(load_cfg, entry.get("expect_attr", ""), -1))
+            mes_run.add_report(
+                name=entry["mes"],
+                result="OK" if ominiwater_field_ok(p, field) else "NG",
+                value=str(val) if val is not None else "",
+                val_min=expect,
+                val_max=expect,
+            )
+        elif kind == "range_int":
+            val = p.get(entry.get("parse_key"))
+            lo, hi = ominiwater_int_limits(field)
+            mes_run.add_report(
+                name=entry["mes"],
+                result="OK" if ominiwater_field_ok(p, field) else "NG",
+                value=str(val) if val is not None else "",
+                val_min=lo,
+                val_max=hi,
+            )
+        elif field == "base_ver":
+            ominiwater_add_string_report(entry["mes"], "base_ver", p.get("base_ver"))
+        elif field == "base_config":
+            ominiwater_add_string_report(entry["mes"], "base_config", p.get("base_config"))
+
+
+def ominiwater_finalize_88(dev, dat):
+    global test_end_time, ominiwater_session_state, ominiwater_last_p, ominiwater_got_step3
+    test_end_time = datetime.now()
+    print("[OMINI-022-WATER] 测试结束帧 dat=" + str(dat))
+
+    res_byte = dat[0] if len(dat) else 0xFF
+    if res_byte == 0x04:
+        mes_run.add_report(name="基站通讯", result="NG", value="治具与基站通讯失败")
+        mes_ret = mes_run.send_report(test_start_time, test_end_time, check_sn_str, "NG")
+        if mes_ret:
+            wx.CallAfter(MainFrame.main_frame.up_notification_ui,
+                         second="治具与基站通讯失败", color=wx.RED)
+        clear_sn_save_list()
+        ominiwater_session_state = OMINIWATER_SESS_FINISHED
+        ominiwater_reset_session()
+        return
+
+    if res_byte != 0x03:
+        mes_run.add_report(name="结束码", result="NG", value=hex(res_byte))
+        res_display_str = "测试结束 NG（结束码 {}）".format(hex(res_byte))
+        mes_ret = mes_run.send_report(test_start_time, test_end_time, check_sn_str, "NG")
+        if mes_ret:
+            wx.CallAfter(MainFrame.main_frame.up_notification_ui,
+                         second=res_display_str, color=wx.RED)
+        clear_sn_save_list()
+        ominiwater_session_state = OMINIWATER_SESS_FINISHED
+        ominiwater_reset_session()
+        return
+
+    p = ominiwater_last_p
+    mes_ok = ominiwater_got_step3 and p is not None and ominiwater_all_ok(p)
+    ominiwater_add_reports(p)
+    if mes_ok:
+        res_display_str = "测试完成 PASS"
+        text_color = wx.GREEN
+        mes_ret = mes_run.send_report(test_start_time, test_end_time, check_sn_str, "OK")
+    else:
+        if not ominiwater_got_step3:
+            res_display_str = "测试结束 NG（未到最终判断步骤）"
+        elif p is None:
+            res_display_str = "测试结束 NG（无结果数据）"
+        else:
+            res_display_str = "测试结束 NG（测试项未达标）"
+        text_color = wx.RED
+        mes_ret = mes_run.send_report(test_start_time, test_end_time, check_sn_str, "NG")
+
+    if p is not None:
+        ominiwater_refresh_test_ui_callafter(p, finalize=True)
+    if mes_ret:
+        wx.CallAfter(MainFrame.main_frame.up_notification_ui,
+                     second=res_display_str, color=text_color)
+    clear_sn_save_list()
+    ominiwater_session_state = OMINIWATER_SESS_FINISHED
+    ominiwater_reset_session()
+
+
+def Omini_water_mode(dev, cmd, dat):
+    global test_start_time, check_sn_enable
+    global ominiwater_session_state, ominiwater_last_step, ominiwater_last_p, ominiwater_got_step3
+
+    if len(dat) <= 0:
+        print("[OMINI-022-WATER] len=0 无有效数据")
+        return
+
+    if cmd == 0x66:
+        if dat[0] == 0x00:
+            test_start_time = datetime.now()
+            mes_run.clear_report()
+            tool.clear_queue(barcode_q)
+            check_sn_enable = True
+            ominiwater_reset_session()
+            ominiwater_session_state = OMINIWATER_SESS_WAIT_SN
+            print("[OMINI-022-WATER] 请扫码")
+            wx.CallAfter(MainFrame.main_frame.reset_ui)
+            wx.CallAfter(MainFrame.main_frame.up_notification_ui, second="请扫码")
+    elif cmd == 0x77:
+        if ominiwater_session_state != OMINIWATER_SESS_RUNNING:
+            return
+        p = rv50water_parse_77(dat)
+        if p is None:
+            return
+        ominiwater_last_p = p
+        st = int(p["step"])
+        print("[OMINI-022-WATER] 0x77 step=" + str(st) + " p=" + str(p))
+        ominiwater_refresh_test_ui_callafter(p, finalize=False)
+        if st == 3:
+            ominiwater_got_step3 = True
+        if st != ominiwater_last_step:
+            ominiwater_last_step = st
+            if st in (1, 3):
+                ominiwater_step_notify(st)
+        if st == 2 and ominiwater_field_enabled("cleaner_level"):
+            ominiwater_level_notify(p.get("cleaner_liquid_level"))
+    elif cmd == 0x88:
+        ominiwater_finalize_88(dev, dat)
 
 
 charge_value = 0

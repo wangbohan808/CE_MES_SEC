@@ -38,7 +38,7 @@ rv50_base_config_expected: "001.002.003"  # RV50 015/016 基站配置码（格�
 # --- Omini 基站（帧格式同 RV50 对应工位，判据独立 ominiair_* / ominiwater_*）---
 #   020  Omini 基站全功能测试      → 待实现
 #   021  Omini 基站过气测试        → §021（帧设备字节 0x15）；0x77 数据区 13 字节；0x88：03 正常结束 / 04 基站通讯失败
-#   022  Omini 基站过水测试        → 待实现
+#   022  Omini 基站过水测试        → §022（帧设备字节 0x16）；0x77 数据区 22 字节；0x88：03 正常结束 / 04 基站通讯失败
 
 # =============================================================================
 # 专项配置（按工位）
@@ -183,6 +183,28 @@ rv50air_duty_kpa_max: -18
 # ominiair_duty_kpa_min: -30
 # ominiair_duty_kpa_max: -18
 # ominiair_base_config_expected: "001.002.003"
+
+# -----------------------------------------------------------------------------
+# §022  device_type=022  Omini 基站过水测试
+# -----------------------------------------------------------------------------
+# #[OMINIWATER-022-PROTO] 0x77 数据区 22 字节（布局同 §016）
+# 水量/液位：不配或 -1 → 不参与比较、不显示 UI、不上报 MES；四路水量分别配置
+# 温度 ADC：某项 min/max 均为 0 → 不参与比较
+# 基站版本用公共 mcu_version；配置码用 ominiwater_base_config_expected（可选）
+# 0x88：03=治具正常结束（须到过 step3 再判 enabled 项）；04=基站通讯失败；PC 不发 0x89
+
+# ominiwater_clear_volume_expected: 3
+# ominiwater_duty_volume_expected: 3
+# ominiwater_left_mop_volume_expected: 3
+# ominiwater_right_mop_volume_expected: 3
+# ominiwater_cleaner_level_expected: 3
+# ominiwater_left_mop_temp_min: 800
+# ominiwater_left_mop_temp_max: 1800
+# ominiwater_right_mop_temp_min: 800
+# ominiwater_right_mop_temp_max: 1800
+# ominiwater_base_hot_temp_min: 600
+# ominiwater_base_hot_temp_max: 1300
+# ominiwater_base_config_expected: "001.002.003"
 
 # -----------------------------------------------------------------------------
 # §016  device_type=016  RV50 基站过水测试

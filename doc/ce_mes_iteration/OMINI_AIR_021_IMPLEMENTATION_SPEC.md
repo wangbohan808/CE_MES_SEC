@@ -136,7 +136,7 @@ OMINIAIR_FIELD_REGISTRY = [
 ]
 ```
 
-**022 过水** 可仿此结构，改 `OMINIWATER_FIELD_REGISTRY` 与解析长度即可。
+**022 过水** 已按此结构实现，见 `doc/ce_mes_iteration/OMINIWATER_022_IMPLEMENTATION_SPEC.md`。
 
 ---
 
