@@ -57,6 +57,7 @@ class LoadCfg:
     com: str = ""        # 串口端口 如：'COM1'
     mes: str = "3"       # 是否使用mes
     mcu_ver: str = ""    # 集尘桶或集尘桶PCB软件版本
+    rv50_base_config_expected: str = ""  # #[RV50-77-VER-CONFIG-EXT] 015/016 基站配置码
     test_tool: str = ""  # 治具名称或编码
     parts_sn_head: str = ""  # 103 配件纸盒条码头，前7位
     project_name: str = ""   # 项目代号
@@ -230,7 +231,7 @@ rv50air_last_p = None
 rv50air_got_step3 = False
 
 # #[RV50-016-WATER-PROTO] RV50 基站过水 device_type=016，帧设备字节 0x10
-RV50WATER_77_DATA_LEN = 16
+RV50WATER_77_DATA_LEN = 22
 RV50WATER_SESS_IDLE = 0
 RV50WATER_SESS_WAIT_SN = 1
 RV50WATER_SESS_RUNNING = 2
@@ -897,9 +898,11 @@ def load_config():
         config.get("rv50air_duty_kpa_min", getattr(load_cfg, "rv50air_duty_kpa_min", -30.0)))
     load_cfg.rv50air_duty_kpa_max = float(
         config.get("rv50air_duty_kpa_max", getattr(load_cfg, "rv50air_duty_kpa_max", -18.0)))
-    load_cfg.rv50air_base_config_expected = config.get(
-        "rv50air_base_config_expected",
-        getattr(load_cfg, "rv50air_base_config_expected", ""))
+    load_cfg.rv50_base_config_expected = config.get(
+        "rv50_base_config_expected",
+        config.get("rv50air_base_config_expected",
+                   getattr(load_cfg, "rv50_base_config_expected", "")))
+    load_cfg.rv50air_base_config_expected = load_cfg.rv50_base_config_expected
 
     # #[RV50-016-WATER-PROTO] 过水判据（水量/液位为 u16 或单字节期望值；温度为 ADC 含端点）
     load_cfg.rv50water_volume_expected = int(
@@ -4265,6 +4268,51 @@ def get_res(val=0xffff, val_min=0, val_max=0):
         return "NG"
 
 
+# ---------- #[RV50-77-VER-CONFIG-EXT] 015/016 共用：基站版本 + 配置码 ----------
+def rv50_fmt_ver_3bytes(dat, start):
+    return ".".join(format(int(dat[i]), "03d") for i in range(start, start + 3))
+
+
+def rv50_base_string_field_ok(field, actual):
+    if field == "base_ver":
+        expect = (load_cfg.mcu_ver or "").strip()
+    elif field == "base_config":
+        expect = (load_cfg.rv50_base_config_expected or "").strip()
+    else:
+        return False
+    if not expect:
+        return None
+    if not actual:
+        return False
+    return actual == expect
+
+
+def rv50_base_ui_result_for_string(field, value, finalize):
+    disp = value or ""
+    if not finalize:
+        return "monitor", disp
+    ok = rv50_base_string_field_ok(field, value)
+    if ok is None or ok is True:
+        return "pass", disp
+    return "fail", disp
+
+
+def rv50_base_add_string_report(name, field, value):
+    ok = rv50_base_string_field_ok(field, value)
+    if ok is None:
+        result = "OK"
+    else:
+        result = "OK" if ok else "NG"
+    if field == "base_ver":
+        expect = load_cfg.mcu_ver
+    else:
+        expect = load_cfg.rv50_base_config_expected
+    mes_run.add_report(
+        name=name, result=result, value=value or "",
+        val_min=expect, val_max=expect,
+    )
+
+
 # ---------- #[RV50-016-WATER-PROTO] RV50 基站过水（device_type=016，帧 dev=0x10）----------
 def rv50water_reset_session():
     global rv50water_session_state, rv50water_last_step, rv50water_last_p
@@ -4295,6 +4343,8 @@ def rv50water_parse_77(dat):
         "right_mop_temperature": rv50water_u16_be(dat[11], dat[12]),
         "cleaner_liquid_level": int(dat[13]) & 0xFF,
         "base_hot_water_temp": rv50water_u16_be(dat[14], dat[15]),
+        "base_ver": rv50_fmt_ver_3bytes(dat, 16),
+        "base_config": rv50_fmt_ver_3bytes(dat, 19),
     }
 
 
@@ -4348,13 +4398,21 @@ def rv50water_field_ok(field, p):
 def rv50water_all_ok(p):
     if p is None:
         return False
-    return all(
-        rv50water_field_ok(f, p)
-        for f in (
-            "clear_vol", "duty_vol", "left_mop_vol", "right_mop_vol",
-            "left_mop_temp", "right_mop_temp", "cleaner_level", "base_hot_temp",
-        )
-    )
+    for check in (
+        rv50water_field_ok("clear_vol", p),
+        rv50water_field_ok("duty_vol", p),
+        rv50water_field_ok("left_mop_vol", p),
+        rv50water_field_ok("right_mop_vol", p),
+        rv50water_field_ok("left_mop_temp", p),
+        rv50water_field_ok("right_mop_temp", p),
+        rv50water_field_ok("cleaner_level", p),
+        rv50water_field_ok("base_hot_temp", p),
+        rv50_base_string_field_ok("base_ver", p.get("base_ver")),
+        rv50_base_string_field_ok("base_config", p.get("base_config")),
+    ):
+        if check is False:
+            return False
+    return True
 
 
 def rv50water_step_notify(step):
@@ -4425,6 +4483,12 @@ def _rv50water_refresh_test_ui_impl(p, finalize):
     for ui_name, field in rows:
         res, val = rv50water_ui_result_for_field(field, p, finalize)
         MainFrame.main_frame.up_test_ui(name=ui_name, result=res, value=val)
+    for ui_name, field, value in (
+        ("base_station_ver", "base_ver", p.get("base_ver")),
+        ("base_station_config", "base_config", p.get("base_config")),
+    ):
+        res, val = rv50_base_ui_result_for_string(field, value, finalize)
+        MainFrame.main_frame.up_test_ui(name=ui_name, result=res, value=val)
 
 
 def rv50water_refresh_test_ui_callafter(p, finalize=False):
@@ -4443,6 +4507,8 @@ def rv50water_add_reports(p):
         mes_run.add_report(name="右拖布温度adc", result="NG", value="无数据")
         mes_run.add_report(name="清洁剂液位", result="NG", value="无数据")
         mes_run.add_report(name="基站热水温度adc", result="NG", value="无数据")
+        mes_run.add_report(name="基站版本", result="NG", value="无数据")
+        mes_run.add_report(name="基站配置码", result="NG", value="无数据")
         return
     mes_run.add_report(
         name="清水通路过水",
@@ -4500,6 +4566,8 @@ def rv50water_add_reports(p):
         val_min=load_cfg.rv50water_base_hot_temp_min,
         val_max=load_cfg.rv50water_base_hot_temp_max,
     )
+    rv50_base_add_string_report("基站版本", "base_ver", p.get("base_ver"))
+    rv50_base_add_string_report("基站配置码", "base_config", p.get("base_config"))
 
 
 def rv50water_finalize_88(dev, dat):
@@ -4544,7 +4612,7 @@ def rv50water_finalize_88(dev, dat):
         elif p is None:
             res_display_str = "测试结束 NG（无结果数据）"
         else:
-            res_display_str = "测试结束 NG（测试项超阈值）"
+            res_display_str = "测试结束 NG（测试项未达标）"
         text_color = wx.RED
         mes_ret = mes_run.send_report(test_start_time, test_end_time, check_sn_str, "NG")
 
@@ -4616,10 +4684,6 @@ def rv50air_u16_be(hi, lo):
     return ((int(hi) & 0xFF) << 8) | (int(lo) & 0xFF)
 
 
-def rv50air_fmt_ver_3bytes(dat, start):
-    return ".".join(format(int(dat[i]), "03d") for i in range(start, start + 3))
-
-
 def rv50air_parse_77(dat):
     if len(dat) < RV50AIR_77_DATA_LEN:
         print("[RV50-015-AIR] 0x77 数据区长度不足: got", len(dat),
@@ -4634,8 +4698,8 @@ def rv50air_parse_77(dat):
         "clear_kpa": wsxqmx_raw_to_kpa(raw_clear),
         "mop_kpa": wsxqmx_raw_to_kpa(raw_mop),
         "duty_kpa": wsxqmx_raw_to_kpa(raw_duty),
-        "base_ver": rv50air_fmt_ver_3bytes(dat, 7),
-        "base_config": rv50air_fmt_ver_3bytes(dat, 10),
+        "base_ver": rv50_fmt_ver_3bytes(dat, 7),
+        "base_config": rv50_fmt_ver_3bytes(dat, 10),
     }
 
 
@@ -4656,17 +4720,7 @@ def rv50air_field_in_range(field, kpa):
 
 
 def rv50air_string_field_ok(field, actual):
-    if field == "base_ver":
-        expect = (load_cfg.mcu_ver or "").strip()
-    elif field == "base_config":
-        expect = (load_cfg.rv50air_base_config_expected or "").strip()
-    else:
-        return False
-    if not expect:
-        return None
-    if not actual:
-        return False
-    return actual == expect
+    return rv50_base_string_field_ok(field, actual)
 
 
 def rv50air_all_ok(p):
@@ -4712,13 +4766,7 @@ def rv50air_ui_result_for_field(field, kpa, finalize):
 
 
 def rv50air_ui_result_for_string(field, value, finalize):
-    disp = value or ""
-    if not finalize:
-        return "monitor", disp
-    ok = rv50air_string_field_ok(field, value)
-    if ok is None or ok is True:
-        return "pass", disp
-    return "fail", disp
+    return rv50_base_ui_result_for_string(field, value, finalize)
 
 
 def _rv50air_refresh_test_ui_impl(p, finalize):
@@ -4744,19 +4792,7 @@ def rv50air_refresh_test_ui_callafter(p, finalize=False):
 
 
 def rv50air_add_string_report(name, field, value):
-    ok = rv50air_string_field_ok(field, value)
-    if ok is None:
-        result = "OK"
-    else:
-        result = "OK" if ok else "NG"
-    if field == "base_ver":
-        expect = load_cfg.mcu_ver
-    else:
-        expect = load_cfg.rv50air_base_config_expected
-    mes_run.add_report(
-        name=name, result=result, value=value or "",
-        val_min=expect, val_max=expect,
-    )
+    rv50_base_add_string_report(name, field, value)
 
 
 def rv50air_add_reports(p):

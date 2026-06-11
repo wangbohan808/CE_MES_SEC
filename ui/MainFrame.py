@@ -63,7 +63,9 @@ rv50water_item_result = [
     {"left_mop_temperature": ["左拖布温度adc：", "", "white"]},
     {"right_mop_temperature": ["右拖布温度adc：", "", "white"]},
     {"cleaner_liquid_level": ["清洁剂液位：", "", "white"]},
-    #{"base_hot_water_temp": ["基站热水温度adc：", "", "white"]},
+    {"base_hot_water_temp": ["基站热水温度adc：", "", "white"]},
+    {"base_station_ver": ["基站版本：", "", "white"]},
+    {"base_station_config": ["基站配置码：", "", "white"]},
 ]
 
 #TODO使用时打开
