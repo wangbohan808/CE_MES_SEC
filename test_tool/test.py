@@ -1927,6 +1927,7 @@ def rv50_proto_parse_77_apply_globals(dat):
     dust_bug_install = int(dat[8])
     clean_base_install = int(dat[9])
     dev_ver = ".".join(format(int(dat[i]), "03d") for i in range(10, 13))
+    base_config = rv50_fmt_ver_3bytes(dat, 13)  # #[RV50-017-CONFIG-DISPLAY] 原保留位
     dust_collection_suction = _rv30_u16_be(dat[16], dat[17])
     clean_water_pump_current = _rv30_u16_be(dat[18], dat[19])
     duty_water_pump_current = _rv30_u16_be(dat[20], dat[21])
@@ -1953,6 +1954,7 @@ def rv50_proto_parse_77_apply_globals(dat):
         "dust": dust_bug_install,
         "clean_base": clean_base_install,
         "dev_ver": dev_ver,
+        "base_config": base_config,
         "suction_10pa": dust_collection_suction,
         "clean_pump": clean_water_pump_current,
         "vacuum_pump": duty_water_pump_current,
@@ -2323,11 +2325,23 @@ def _rv50_proto_ui_rows(p):
     ]
 
 
+def rv50_proto_refresh_base_config_ui(p):
+    # #[RV50-017-CONFIG-DISPLAY] dat[13..15] 基站配置码，仅 UI 展示，不参与判据
+    if p is None or MainFrame.main_frame is None:
+        return
+    MainFrame.main_frame.up_test_ui(
+        name="base_station_config",
+        result="monitor",
+        value=p.get("base_config") or "",
+    )
+
+
 def rv50_proto_refresh_test_ui(p, finalize=False):
     if p is None or MainFrame.main_frame is None:
         return
     for ui_name, field, val in _rv50_proto_ui_rows(p):
         rv50_proto_apply_test_ui_row(p, ui_name, field, val, finalize=finalize)
+    rv50_proto_refresh_base_config_ui(p)
     if not finalize and rv50_step4_monitor_phase(p):
         rv50_step4_notify(p)
 
@@ -2366,6 +2380,11 @@ def rv50_proto_add_reports():
     mes_run.add_report(name="清洁泵电流", result="", value=str(cleaner_pump_current))
     mes_run.add_report(name="浊度数据", result="", value=str(turbidity_data))
     mes_run.add_report(name="热风差值", result="", value=str(rv50_hot_diff_adc))
+    if rv50_last_p is not None:
+        mes_run.add_report(
+            name="基站配置码", result="",
+            value=rv50_last_p.get("base_config") or "",
+        )
 
 
 def rv50_proto_finalize_88(dev, dat):
@@ -2434,6 +2453,7 @@ def rv50_proto_finalize_88(dev, dat):
                         name=ui_name, result="pass", value=val)
                     continue
                 rv50_proto_apply_test_ui_row(p, ui_name, field, val, finalize=True)
+            rv50_proto_refresh_base_config_ui(p)
         wx.CallAfter(_finalize_ui_refresh)
     if mes_ret:
         wx.CallAfter(MainFrame.main_frame.up_notification_ui, second=res_display_str, color=text_color)

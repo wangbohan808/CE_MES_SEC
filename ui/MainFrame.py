@@ -97,6 +97,7 @@ hw1_over_air_item_result = [
 # #[RV50-017-PROTO] device_type=017 测试格键名与 test.py 0x77 字段一致
 rv50_item_result = [
     {"mcu_ver": ["MCU版本：", "", "white"]},
+    {"base_station_config": ["基站配置码：", "", "white"]},
     {"charge_value": ["充电电流：", "", "white"]},
     {"rv50_hot_start": ["热风开始：", "", "white"]},
     {"ir_code_left": ["左回充码：", "", "white"]},
