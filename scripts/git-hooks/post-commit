@@ -1,0 +1,9 @@
+#!/bin/sh
+# post-commit: 业务 commit 成功后生成 ai-changelog 快照（不自动 commit）
+ROOT="$(git rev-parse --show-toplevel)"
+PY="${ROOT}/.venv/Scripts/python.exe"
+if [ ! -x "$PY" ]; then
+  PY=python
+fi
+"$PY" "$ROOT/scripts/git-hooks/post-commit-changelog.py" || true
+exit 0

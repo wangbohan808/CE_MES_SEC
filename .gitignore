@@ -1,0 +1,73 @@
+# =============================================================================
+# CE_MES_SEC — 不应纳入 Git 的文件与目录
+# 虚拟环境、构建产物、运行时生成物、本地配置与 IDE 文件
+# =============================================================================
+
+# --- Python 运行时 ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# --- 虚拟环境（本地 pip install -r requirements.txt 重建）---
+.venv/
+venv/
+ENV/
+env/
+
+# --- PyInstaller / 打包产物 ---
+build/
+dist/
+*.manifest
+main.exe
+
+# --- 误放入项目的第三方源码（应使用 pip install pygame）---
+pygame-2.6.1/
+
+# --- 运行时日志 ---
+logs/
+*.log
+
+# --- TTS 测试生成的语音缓存（mes/test.py 可重新生成）---
+mes/out/
+mes/out-es/
+mes/out-g/
+mes/out-it/
+
+# --- 产线测试记录 CSV（运行时写入，见 mes/mes_run.py）---
+测试记录/
+
+# --- 自动生成的 AI 变更快照（git hook 产出，与 git log 重复）---
+doc/ai-changelog/
+
+# --- 测试 / 类型检查缓存 ---
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# --- IDE / 编辑器 ---
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# --- 操作系统 ---
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# --- 本地密钥与环境变量（勿提交 API Key、MES 密码等）---
+.env
+.env.*
+!.env.example
+
+# --- Jupyter（如有）---
+.ipynb_checkpoints/
+
+# --- 可选：本地 SQLite（若将来放在项目目录内）---
+# *.db

@@ -1,0 +1,208 @@
+# =============================================================================
+# CE_MES 治具配置
+# 修改 device_type 切换工位；专项参数见下方对应章节（启动时均会读入，仅对应工位生效）。
+# 加载入口：test_tool/test.py → load_config()
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# 公共配置（所有工位）
+# -----------------------------------------------------------------------------
+device_type: "106"          # 当前工位，完整列表见文末「device_type 索引」
+project_name: "RV30"         # 窗口标题前缀（如 HW1、RV50、C10B）
+use_mes: "2"                # MES：1=海能+安克  2=仅海能  3=仅安克
+user_com: ""                # 串口 COMx；留空则自动识别（需唯一可用口）
+mcu_version: "002.001.078"  # 集尘桶/充电桩固件版本；前撞条等无固件可留空
+# test_tool: "治具未编码"   # 治具名称/编码（海能 MES，可选）
+
+# -----------------------------------------------------------------------------
+# device_type 索引（三位字符串，与 ui/MainFrame.py heading_line_dict 一致）
+# -----------------------------------------------------------------------------
+# --- 主板治具 dev < 100（海能串口协议）---
+#   001  过水测试（旧线）          002  充电座测试
+#   003  前撞组件                  004  前撞 PCB
+#   005  地检组件                  006  集尘桶 PCB
+#   007  静态电流                  010  左轮    011  右轮
+#   012  边刷摆臂                  013  中扫
+#   015  RV50 基站过气测试         → §015（帧设备字节 0x0F）；0x77 数据区 13 字节；0x88：03 正常结束 / 04 基站通讯失败
+#   016  RV50 基站过水测试         → §016（帧设备字节 0x10）；0x88：03 正常结束 / 04 基站通讯失败
+#   017  RV50 基站全功能测试       → §017（帧设备字节 0x11）；0x88：03 正常结束 / 04 基站通讯失败
+#   018  RV50 基站 PCBA 测试       → §018（帧设备字节 0x12）；0x88：03 正常结束 / 04 基站通讯失败
+#   019  RV50 污水箱气密性         → §019（帧设备字节 0x13）；0x88：03 正常结束 / 04 基站通讯失败
+#   050  RV30 基站全功能/双红外   → §050（帧设备字节 0x50）；0x88：03 正常结束 / 04 基站通讯失败
+# --- 上位机工具 dev ≥ 100（非标准治具协议）---
+#   100  绑定主机、前撞、电池      101  打高压（耐压）
+#   102  条码比对                  103  配件纸箱条码  → §103
+#   104  打高压 ZC7122D            105  耐高压
+#   106  称重工位                  → §106
+
+# =============================================================================
+# 专项配置（按工位）
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# §050  device_type=050  RV30 基站全功能（双红外成品检测）
+# -----------------------------------------------------------------------------
+# [RV30-PROTO] 0x88 数据首字节：03=治具正常结束（上位机再综合判定 PASS/NG）
+#                   04=治具与基站通讯失败（专用提示 + MES NG，不跑全项终判）
+# [RV30-PROTO] 0x77 实时/终判阈值；某项上下限均为 0 表示不参与比较。
+# 治具发 0x68 后可覆盖下列运行时阈值（见 test.py rv30_proto_parse_68_dat）。
+# 调优：test.py rv30_proto_yaml_realtime_ok / rv30_proto_yaml_finalize_ok
+
+# 充电电流上下限
+rv30_charge_min: 100
+rv30_charge_max: 200
+
+# 集尘吸力上下限（kPa，含端点）；治具 0x77/0x68 仍为 10Pa 计数（kPa×100，如 10→1000）
+rv30_suction_kpa_min: 10
+rv30_suction_kpa_max: 30
+
+# 过零频率期望值（0=不参与比较）
+rv30_freq_expected: 0x32
+
+# 红外回充码期望值（16 进制，与 UI/MES 显示一致）
+rv30_ir_l: 0x50
+rv30_ir_lc: 0x44
+rv30_ir_rc: 0x42
+rv30_ir_r: 0x48
+
+# 尘袋 / LED 期望状态
+rv30_dust_bag_expected: 0x03
+rv30_led_expected: 0x03
+
+# -----------------------------------------------------------------------------
+# §017  device_type=017  RV50 基站全功能测试
+# -----------------------------------------------------------------------------
+# #[RV50-017-PROTO] 0x77 数据区 38 字节，帧长字段 0x26；0x88：03=治具正常结束；04=基站通讯失败
+# 过程 0x77 实时判据失败即发 0x89 并上报 MES NG（仅一次）；0x88 不回 0x89
+# 某项上下限均为 0 表示不参与比较；集尘配置为 kPa，治具帧内为 10Pa 计数
+
+rv50_charge_min: 200
+rv50_charge_max: 3000
+
+rv50_ir_l: 0x44
+rv50_ir_r: 0x42
+rv50_ir_n: 0x48
+
+rv50_clear_tank_expected: 0x03
+rv50_duty_tank_expected: 0x03
+rv50_clean_base_expected: 0x03
+
+rv50_suction_kpa_min: 17
+rv50_suction_kpa_max: 30
+
+rv50_clean_pump_min: 50
+rv50_clean_pump_max: 350
+rv50_vacuum_pump_min: 50
+rv50_vacuum_pump_max: 200
+rv50_base_level_up_min: 3000
+rv50_base_level_up_max: 4095
+rv50_base_level_down_min: 0
+rv50_base_level_down_max: 1000
+rv50_em_valve_min: 100
+rv50_em_valve_max: 500
+
+rv50_wash_pump_min: 50
+rv50_wash_pump_max: 350
+rv50_turbidity_min: 5000
+rv50_turbidity_max: 15000
+rv50_hot_diff_min: 20
+rv50_hot_diff_max: 250
+
+# -----------------------------------------------------------------------------
+# §018  device_type=018  RV50 基站 PCBA 测试
+# -----------------------------------------------------------------------------
+# #[RV50-018-PCBA-PROTO] 0x77 数据区 38 字节，帧长字段 0x26；0x88：03=治具正常结束；04=基站通讯失败
+# 过程 0x77 实时判据失败发 0x89 0x02 并上报 MES NG（仅一次）；0x88 正常结束不回 0x89
+# step1 仅占位；charge 在 step5 判据；某项上下限均为 0 表示不参与比较
+
+rv50pcba_ir_l: 0x44
+rv50pcba_ir_r: 0x42
+rv50pcba_ir_n: 0x48
+
+rv50pcba_clear_tank_expected: 0x03
+rv50pcba_duty_tank_expected: 0x03
+rv50pcba_dust_expected: 0x03
+rv50pcba_clean_base_expected: 0x03
+
+rv50pcba_clean_pump_min: 50
+rv50pcba_clean_pump_max: 350
+rv50pcba_vacuum_pump_min: 3000
+rv50pcba_vacuum_pump_max: 4095
+rv50pcba_base_level_up_min: 0
+rv50pcba_base_level_up_max: 4095
+rv50pcba_base_level_down_min: 0
+rv50pcba_base_level_down_max: 1000
+rv50pcba_em_valve_min: 100
+rv50pcba_em_valve_max: 500
+
+rv50pcba_wash_pump_min: 50
+rv50pcba_wash_pump_max: 350
+rv50pcba_turbidity_min: 5000
+rv50pcba_turbidity_max: 15000
+rv50pcba_hot_diff_min: 20
+rv50pcba_hot_diff_max: 250
+rv50pcba_charge_min: 200
+rv50pcba_charge_max: 3000
+rv50pcba_blower_freq_min: 110
+rv50pcba_blower_freq_max: 150
+
+# -----------------------------------------------------------------------------
+# §015  device_type=015  RV50 基站过气测试
+# -----------------------------------------------------------------------------
+# #[RV50-015-AIR-PROTO] 0x77 数据区 13 字节：原 7 字节气压 + dat[7..9]基站版本 + dat[10..12]基站配置码
+# 气压为 10Pa 计数；下列阈值为 kPa（含端点），比较前 raw×0.01
+# 基站版本比对公共 mcu_version；基站配置码格式同 mcu_version，见 rv50air_base_config_expected
+# 0x88：03=治具正常结束（再判全部测试项）；04=治具与基站通讯失败；PC 不发 0x89
+
+rv50air_clear_kpa_min: 20
+rv50air_clear_kpa_max: 80
+rv50air_mop_kpa_min: 20
+rv50air_mop_kpa_max: 230
+rv50air_duty_kpa_min: -30
+rv50air_duty_kpa_max: -18
+rv50air_base_config_expected: "001.002.003"
+
+# -----------------------------------------------------------------------------
+# §016  device_type=016  RV50 基站过水测试
+# -----------------------------------------------------------------------------
+# #[RV50-016-WATER-PROTO] 0x77：四路水量 u16==期望值；清洁剂液位单字节==期望值；温度为 ADC（含端点）
+# 0x88：03=治具正常结束（再判全项）；04=治具与基站通讯失败；PC 不发 0x89
+
+rv50water_volume_expected: 3
+rv50water_cleaner_level_expected: 3
+rv50water_left_mop_temp_min: 800
+rv50water_left_mop_temp_max: 1800
+rv50water_right_mop_temp_min: 800
+rv50water_right_mop_temp_max: 1800
+rv50water_base_hot_temp_min: 600
+rv50water_base_hot_temp_max: 130000
+
+# -----------------------------------------------------------------------------
+# §019  device_type=019  RV50 污水箱气密性
+# -----------------------------------------------------------------------------
+# [WSXQMX-019] 0x88 数据首字节：03=治具正常结束（再判保压气压）；04=治具与基站通讯失败
+# [WSXQMX-019] 仅用通知区，不用测试格；保压结束帧气压判据（kPa，含端点）
+
+wsxqmx_hold_kpa_min: -20
+wsxqmx_hold_kpa_max: -17
+
+# -----------------------------------------------------------------------------
+# §106  device_type=106  称重工位
+# -----------------------------------------------------------------------------
+# [WEIGH-106] 未配置项使用 test.LoadCfg 默认值；详见 WEIGH_STATION_106_SPEC.md
+
+weight_min_kg: 6.89
+weight_max_kg: 6.93
+weight_read_delay_sec: 1
+weight_read_timeout_sec: 20
+weigh_scheme: "2"              # "1" 全程固定上下限；"2" 前 N 台直通后 μ±kσ
+weigh_pass_first_n: 5          # 方案二直通台数（代码最小 3）
+weigh_sigma_k: 2.5             # 方案二动态限系数 k：下限=μ-kσ，上限=μ+kσ（一位小数，如 2.5）
+weigh_history_json_path: "weigh_106_history_test.json"  # 方案二历史 JSON；不存在则自动创建
+
+# -----------------------------------------------------------------------------
+# §103  device_type=103  配件纸箱条码检测
+# -----------------------------------------------------------------------------
+# SN 前 7 位固定头（与扫码规则一致）
+
+parts_sn_head: "2242G06"
