@@ -57,7 +57,7 @@ class LoadCfg:
     com: str = ""        # 串口端口 如：'COM1'
     mes: str = "3"       # 是否使用mes
     mcu_ver: str = ""    # 集尘桶或集尘桶PCB软件版本
-    rv50_base_config_expected: str = ""  # #[RV50-77-VER-CONFIG-EXT] 015/016 基站配置码
+    base_station_config_expected: str = ""  # RV50/Omini 015~022 基站配置码（格式同 mcu_version）
     test_tool: str = ""  # 治具名称或编码
     parts_sn_head: str = ""  # 103 配件纸盒条码头，前7位
     project_name: str = ""   # 项目代号
@@ -103,7 +103,6 @@ class LoadCfg:
     rv50air_mop_kpa_max: float = 230.0
     rv50air_duty_kpa_min: float = -30.0
     rv50air_duty_kpa_max: float = -18.0
-    rv50air_base_config_expected: str = ""
     # #[OMINIAIR-021-PROTO] device_type=021 Omini 基站过气（帧 dev=0x15）；0=不参与比较
     ominiair_clear_kpa_min: float = 0.0
     ominiair_clear_kpa_max: float = 0.0
@@ -111,7 +110,6 @@ class LoadCfg:
     ominiair_mop_kpa_max: float = 0.0
     ominiair_duty_kpa_min: float = 0.0
     ominiair_duty_kpa_max: float = 0.0
-    ominiair_base_config_expected: str = ""
     # #[OMINIWATER-022-PROTO] device_type=022 Omini 基站过水（帧 dev=0x16）；-1=不参与比较
     ominiwater_clear_volume_expected: int = -1
     ominiwater_duty_volume_expected: int = -1
@@ -124,7 +122,6 @@ class LoadCfg:
     ominiwater_right_mop_temp_max: int = 0
     ominiwater_base_hot_temp_min: int = 0
     ominiwater_base_hot_temp_max: int = 0
-    ominiwater_base_config_expected: str = ""
     # #[RV50-016-WATER-PROTO] device_type=016 基站过水（帧 dev=0x10）
     rv50water_volume_expected: int = 3
     rv50water_cleaner_level_expected: int = 3
@@ -195,7 +192,6 @@ class LoadCfg:
     omini_turbidity_max: int = 0
     omini_hot_diff_min: int = 0
     omini_hot_diff_max: int = 0
-    omini_base_config_expected: str = ""
     # #[RV50-018-PCBA-PROTO] device_type=018 基站 PCBA（帧设备字节 0x12）
     rv50pcba_charge_min: int = 0
     rv50pcba_charge_max: int = 0
@@ -354,7 +350,7 @@ RV50_STEP4_ORDER_HINT = "步骤四：请严格按顺序操作（清水箱→尘�
 RV50_STEP4_LED_HINT = "请工人观察LED灯显示，正常按开始键，异常按结束键"
 
 RV50_REALTIME_FIELDS = (
-    "dev_ver", "charge",
+    "dev_ver", "base_config", "charge",
     "ir_l", "ir_r", "ir_n",
     "clear_tank", "duty_tank", "clean_base",
     "suction_10pa",
@@ -1083,11 +1079,10 @@ def load_config():
         config.get("rv50air_duty_kpa_min", getattr(load_cfg, "rv50air_duty_kpa_min", -30.0)))
     load_cfg.rv50air_duty_kpa_max = float(
         config.get("rv50air_duty_kpa_max", getattr(load_cfg, "rv50air_duty_kpa_max", -18.0)))
-    load_cfg.rv50_base_config_expected = config.get(
-        "rv50_base_config_expected",
-        config.get("rv50air_base_config_expected",
-                   getattr(load_cfg, "rv50_base_config_expected", "")))
-    load_cfg.rv50air_base_config_expected = load_cfg.rv50_base_config_expected
+
+    load_cfg.base_station_config_expected = str(
+        config.get("base_station_config_expected",
+                   getattr(load_cfg, "base_station_config_expected", ""))).strip()
 
     # #[OMINIAIR-021-PROTO] 三路气压阈值（kPa）；缺省 0 表示不参与比较
     load_cfg.ominiair_clear_kpa_min = float(
@@ -1102,9 +1097,6 @@ def load_config():
         config.get("ominiair_duty_kpa_min", getattr(load_cfg, "ominiair_duty_kpa_min", 0.0)))
     load_cfg.ominiair_duty_kpa_max = float(
         config.get("ominiair_duty_kpa_max", getattr(load_cfg, "ominiair_duty_kpa_max", 0.0)))
-    load_cfg.ominiair_base_config_expected = str(
-        config.get("ominiair_base_config_expected",
-                   getattr(load_cfg, "ominiair_base_config_expected", ""))).strip()
 
     # #[OMINIWATER-022-PROTO] 过水判据；-1 表示不参与比较
     load_cfg.ominiwater_clear_volume_expected = int(
@@ -1140,9 +1132,6 @@ def load_config():
     load_cfg.ominiwater_base_hot_temp_max = int(
         config.get("ominiwater_base_hot_temp_max",
                    getattr(load_cfg, "ominiwater_base_hot_temp_max", 0)))
-    load_cfg.ominiwater_base_config_expected = str(
-        config.get("ominiwater_base_config_expected",
-                   getattr(load_cfg, "ominiwater_base_config_expected", ""))).strip()
 
     # #[RV50-016-WATER-PROTO] 过水判据（水量/液位为 u16 或单字节期望值；温度为 ADC 含端点）
     load_cfg.rv50water_volume_expected = int(
@@ -1277,9 +1266,6 @@ def load_config():
         config.get("omini_hot_diff_min", getattr(load_cfg, "omini_hot_diff_min", 0)))
     load_cfg.omini_hot_diff_max = int(
         config.get("omini_hot_diff_max", getattr(load_cfg, "omini_hot_diff_max", 0)))
-    load_cfg.omini_base_config_expected = str(
-        config.get("omini_base_config_expected",
-                   getattr(load_cfg, "omini_base_config_expected", ""))).strip()
 
     # #[RV50-018-PCBA-PROTO] device_type=018 判据（0=不参与比较）
     rv50pcba_chg_min, rv50pcba_chg_max = _rv30_config_u16(
@@ -2299,7 +2285,7 @@ def rv50_field_active(step, field):
         return st >= 1
     if field in ("ir_l", "ir_r", "ir_n"):
         return st >= 3
-    if field in ("clear_tank", "duty_tank", "dust", "clean_base", "dev_ver"):
+    if field in ("clear_tank", "duty_tank", "dust", "clean_base", "dev_ver", "base_config"):
         return st >= 4
     if field == "suction_10pa":
         return st >= 5
@@ -2404,6 +2390,14 @@ def rv50_field_ok(p, field):
         if not expect_ver:
             return None
         return p.get("dev_ver") == expect_ver
+    if field == "base_config":
+        expect = (load_cfg.base_station_config_expected or "").strip()
+        if not expect:
+            return None
+        actual = p.get("base_config")
+        if not actual:
+            return False
+        return actual == expect
     if field == "charge":
         ch = (
             load_cfg.rv50_charge_Hmin, load_cfg.rv50_charge_Lmin,
@@ -2539,7 +2533,7 @@ def rv50_field_status_finalize(p, field):
 
 
 RV50_FINALIZE_FIELDS = (
-    "dev_ver", "charge", "ir_l", "ir_r", "ir_n",
+    "dev_ver", "base_config", "charge", "ir_l", "ir_r", "ir_n",
     "clear_tank", "duty_tank", "clean_base", "suction_10pa",
     "clean_pump", "vacuum_pump", "base_level_up", "base_level_down", "em_valve",
     "wash_pump", "turbidity", "hot_diff",
@@ -2607,6 +2601,7 @@ def rv50_proto_apply_test_ui_row(p, ui_name, field, val, finalize=False):
 def _rv50_proto_ui_rows(p):
     return [
         ("mcu_ver", "dev_ver", p["dev_ver"]),
+        ("base_station_config", "base_config", p.get("base_config") or ""),
         ("charge_value", "charge", str(p["charge"])),
         ("rv50_hot_start", "hot_start", str(p["hot_start"])),
         ("ir_code_left", "ir_l", _rv30_fmt_ir_byte(p["ir_l"])),
@@ -2629,23 +2624,11 @@ def _rv50_proto_ui_rows(p):
     ]
 
 
-def rv50_proto_refresh_base_config_ui(p):
-    # #[RV50-017-CONFIG-DISPLAY] dat[13..15] 基站配置码，仅 UI 展示，不参与判据
-    if p is None or MainFrame.main_frame is None:
-        return
-    MainFrame.main_frame.up_test_ui(
-        name="base_station_config",
-        result="monitor",
-        value=p.get("base_config") or "",
-    )
-
-
 def rv50_proto_refresh_test_ui(p, finalize=False):
     if p is None or MainFrame.main_frame is None:
         return
     for ui_name, field, val in _rv50_proto_ui_rows(p):
         rv50_proto_apply_test_ui_row(p, ui_name, field, val, finalize=finalize)
-    rv50_proto_refresh_base_config_ui(p)
     if not finalize and rv50_step4_monitor_phase(p):
         rv50_step4_notify(p)
 
@@ -2684,10 +2667,14 @@ def rv50_proto_add_reports():
     mes_run.add_report(name="清洁泵电流", result="", value=str(cleaner_pump_current))
     mes_run.add_report(name="浊度数据", result="", value=str(turbidity_data))
     mes_run.add_report(name="热风差值", result="", value=str(rv50_hot_diff_adc))
-    if rv50_last_p is not None:
+    if rv50_last_p is not None and (load_cfg.base_station_config_expected or "").strip():
+        cfg_ok = rv50_field_ok(rv50_last_p, "base_config")
         mes_run.add_report(
-            name="基站配置码", result="",
+            name="基站配置码",
+            result="OK" if cfg_ok else "NG",
             value=rv50_last_p.get("base_config") or "",
+            val_min=load_cfg.base_station_config_expected,
+            val_max=load_cfg.base_station_config_expected,
         )
 
 
@@ -2757,7 +2744,6 @@ def rv50_proto_finalize_88(dev, dat):
                         name=ui_name, result="pass", value=val)
                     continue
                 rv50_proto_apply_test_ui_row(p, ui_name, field, val, finalize=True)
-            rv50_proto_refresh_base_config_ui(p)
         wx.CallAfter(_finalize_ui_refresh)
     if mes_ret:
         wx.CallAfter(MainFrame.main_frame.up_notification_ui, second=res_display_str, color=text_color)
@@ -2849,7 +2835,7 @@ OMINI_UI_LABELS = {
 OMINI_FIELD_REGISTRY = [
     {"field": "dev_ver", "kind": "version", "ui": "mcu_ver", "mes": "MCU版本", "active_from_step": 4},
     {"field": "base_config", "kind": "string", "ui": "base_station_config", "mes": "基站配置码",
-     "expect_attr": "omini_base_config_expected", "active_from_step": 4},
+     "expect_attr": "base_station_config_expected", "active_from_step": 4},
     {"field": "charge", "kind": "range", "ui": "charge_value", "mes": "充电电流",
      "min_attr": "omini_charge_min", "max_attr": "omini_charge_max", "active_from_step": 1},
     {"field": "ir_l", "kind": "expected", "ui": "ir_code_left", "mes": "左回充码",
@@ -5322,7 +5308,7 @@ def rv50_base_string_field_ok(field, actual):
     if field == "base_ver":
         expect = (load_cfg.mcu_ver or "").strip()
     elif field == "base_config":
-        expect = (load_cfg.rv50_base_config_expected or "").strip()
+        expect = (load_cfg.base_station_config_expected or "").strip()
     else:
         return False
     if not expect:
@@ -5351,7 +5337,7 @@ def rv50_base_add_string_report(name, field, value):
     if field == "base_ver":
         expect = load_cfg.mcu_ver
     else:
-        expect = load_cfg.rv50_base_config_expected
+        expect = load_cfg.base_station_config_expected
     mes_run.add_report(
         name=name, result=result, value=value or "",
         val_min=expect, val_max=expect,
@@ -5989,7 +5975,7 @@ OMINIAIR_FIELD_REGISTRY = [
      "min_attr": "ominiair_duty_kpa_min", "max_attr": "ominiair_duty_kpa_max"},
     {"field": "base_ver", "kind": "version", "ui": "base_station_ver", "mes": "基站版本"},
     {"field": "base_config", "kind": "string", "ui": "base_station_config", "mes": "基站配置码",
-     "expect_attr": "ominiair_base_config_expected"},
+     "expect_attr": "base_station_config_expected"},
 ]
 
 
@@ -6151,7 +6137,7 @@ def ominiair_string_field_ok(field, actual):
     if field == "base_ver":
         expect = (load_cfg.mcu_ver or "").strip()
     elif field == "base_config":
-        expect = (load_cfg.ominiair_base_config_expected or "").strip()
+        expect = (load_cfg.base_station_config_expected or "").strip()
     else:
         return None
     if not expect:
@@ -6206,7 +6192,7 @@ def ominiair_add_string_report(name, field, value):
     if field == "base_ver":
         expect = load_cfg.mcu_ver
     else:
-        expect = load_cfg.ominiair_base_config_expected
+        expect = load_cfg.base_station_config_expected
     mes_run.add_report(
         name=name, result=result, value=value or "",
         val_min=expect, val_max=expect,
@@ -6377,7 +6363,7 @@ OMINIWATER_FIELD_REGISTRY = [
     {"field": "base_ver", "kind": "version", "ui": "base_station_ver", "mes": "基站版本",
      "parse_key": "base_ver"},
     {"field": "base_config", "kind": "string", "ui": "base_station_config", "mes": "基站配置码",
-     "parse_key": "base_config", "expect_attr": "ominiwater_base_config_expected"},
+     "parse_key": "base_config", "expect_attr": "base_station_config_expected"},
 ]
 
 
@@ -6550,7 +6536,7 @@ def ominiwater_string_field_ok(field, actual):
     if field == "base_ver":
         expect = (load_cfg.mcu_ver or "").strip()
     elif field == "base_config":
-        expect = (load_cfg.ominiwater_base_config_expected or "").strip()
+        expect = (load_cfg.base_station_config_expected or "").strip()
     else:
         return None
     if not expect:
@@ -6593,7 +6579,7 @@ def ominiwater_add_string_report(name, field, value):
     if field == "base_ver":
         expect = load_cfg.mcu_ver
     else:
-        expect = load_cfg.ominiwater_base_config_expected
+        expect = load_cfg.base_station_config_expected
     mes_run.add_report(
         name=name, result=result, value=value or "",
         val_min=expect, val_max=expect,

@@ -270,7 +270,7 @@ omini_suction_kpa_max: 30
 # omini_hot_diff_min / omini_hot_diff_max
 
 # 方案 B 配置号（Q4/Q11）
-# omini_base_config_expected: 0x23   # 仅当产品要求 step=0 比对；0=不参与
+# omini_base_config_expected: 0x23   # 已废弃，改用公共 base_station_config_expected
 ```
 
 在 **device_type 索引注释**中增加一行（实现时）：
@@ -345,7 +345,7 @@ def omini_step4_enabled_modules() -> tuple: ...  # registry 中 step4_module 且
 - `omini_ir_l/r/n`  
 - `omini_clear_tank_expected`、`omini_duty_tank_expected`、`omini_dust_expected`、`omini_clean_base_expected`  
 - 各泵/液位/浊度/热风 `omini_*_min/max`  
-- 可选 `omini_base_config_expected`  
+- 可选 `base_station_config_expected`（公共，与 RV50 015~022 共用）  
 - 可选 `omini_modules: list`（若 Q10 启用）
 
 ---

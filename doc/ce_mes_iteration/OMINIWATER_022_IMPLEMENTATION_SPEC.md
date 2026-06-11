@@ -74,7 +74,7 @@
 | 精确匹配（清洁剂液位） | `ominiwater_cleaner_level_expected` | **值 ≥ 0**（默认 `-1`） |
 | 区间（三路温度 ADC） | `ominiwater_{left\|right}_mop_temp_min/max`、`ominiwater_base_hot_temp_min/max` | **min 与 max 不同时为 0** |
 | 基站版本 | 公共 `mcu_version` | 非空字符串 |
-| 基站配置码 | `ominiwater_base_config_expected` | 非空字符串 |
+| 基站配置码 | `base_station_config_expected`（公共） | 非空字符串 |
 
 ### 3.2 `ominiwater_field_ok` 返回值
 
@@ -122,7 +122,7 @@ ominiwater_left_mop_temp_max: 1800
 # 不配 right_mop / base_hot 温度 → 对应传感器不测
 
 mcu_version: "002.001.078"
-ominiwater_base_config_expected: "001.002.003"
+base_station_config_expected: "001.002.003"
 ```
 
 ---
@@ -156,7 +156,7 @@ OMINIWATER_FIELD_REGISTRY = [
     {"field": "base_hot_temp", "kind": "range_int", "ui": "base_hot_water_temp",     "mes": "基站热水温度adc", ...},
     {"field": "base_ver",      "kind": "version",   "ui": "base_station_ver",        "mes": "基站版本"},
     {"field": "base_config",   "kind": "string",    "ui": "base_station_config",     "mes": "基站配置码",
-     "expect_attr": "ominiwater_base_config_expected"},
+     "expect_attr": "base_station_config_expected"},
 ]
 ```
 

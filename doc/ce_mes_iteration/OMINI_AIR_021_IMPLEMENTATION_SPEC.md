@@ -64,7 +64,7 @@
 |----------|-----------|--------------|
 | 区间（三路气压） | `ominiair_{clear\|mop\|duty}_kpa_min/max` | **min 与 max 不同时为 0** |
 | 基站版本 | 公共 `mcu_version` | 非空字符串 |
-| 基站配置码 | `ominiair_base_config_expected` | 非空字符串 |
+| 基站配置码 | `base_station_config_expected`（公共） | 非空字符串 |
 
 ### 3.2 `ominiair_field_ok` 返回值
 
@@ -104,7 +104,7 @@ ominiair_duty_kpa_max: -18
 # 不配 ominiair_mop_kpa_* → 无拖布通路传感器则不测
 
 mcu_version: "002.001.078"
-ominiair_base_config_expected: "001.002.003"  # 可选；不配则跳过
+base_station_config_expected: "001.002.003"  # 公共区；不配则跳过
 ```
 
 ---
@@ -132,7 +132,7 @@ OMINIAIR_FIELD_REGISTRY = [
      "min_attr": "ominiair_duty_kpa_min",  "max_attr": "ominiair_duty_kpa_max"},
     {"field": "base_ver",    "kind": "version",   "ui": "base_station_ver",        "mes": "基站版本"},
     {"field": "base_config", "kind": "string",    "ui": "base_station_config",     "mes": "基站配置码",
-     "expect_attr": "ominiair_base_config_expected"},
+     "expect_attr": "base_station_config_expected"},
 ]
 ```
 

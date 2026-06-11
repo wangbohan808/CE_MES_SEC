@@ -11,8 +11,8 @@ device_type: "106"          # 当前工位，完整列表见文末「device_type
 project_name: "RV30"         # 窗口标题前缀（如 HW1、RV50、C10B）
 use_mes: "2"                # MES：1=海能+安克  2=仅海能  3=仅安克
 user_com: ""                # 串口 COMx；留空则自动识别（需唯一可用口）
-mcu_version: "002.001.078"  # 集尘桶/充电桩固件版本；RV50 015/016 基站版本比对亦用此项
-rv50_base_config_expected: "001.002.003"  # RV50 015/016 基站配置码（格式同 mcu_version）
+mcu_version: "002.001.078"  # 基站/MCU 版本；RV50/Omini 015~022 共用
+base_station_config_expected: "001.002.003"  # 基站配置码（格式同 mcu_version）；015~022 共用，不配则不比对
 # test_tool: "治具未编码"   # 治具名称/编码（海能 MES，可选）
 
 # -----------------------------------------------------------------------------
@@ -157,7 +157,7 @@ rv50pcba_blower_freq_max: 150
 # -----------------------------------------------------------------------------
 # #[RV50-015-AIR-PROTO] 0x77 数据区 13 字节：原 7 字节气压 + dat[7..9]基站版本 + dat[10..12]基站配置码
 # 气压为 10Pa 计数；下列阈值为 kPa（含端点），比较前 raw×0.01
-# 基站版本/配置码阈值见公共 mcu_version、rv50_base_config_expected
+# 基站版本/配置码阈值见公共 mcu_version、base_station_config_expected
 # 0x88：03=治具正常结束（再判全部测试项）；04=治具与基站通讯失败；PC 不发 0x89
 
 rv50air_clear_kpa_min: 20
@@ -172,7 +172,7 @@ rv50air_duty_kpa_max: -18
 # -----------------------------------------------------------------------------
 # #[OMINI-020-PROTO] 0x77 数据区 38 字节（布局同 §017）；0x88：03=治具正常结束；04=基站通讯失败
 # 某项 min/max 均为 0 或 expected 为 0 → 不参与比较、不显示 UI、不上报 MES
-# MCU 版本用公共 mcu_version；配置码用 omini_base_config_expected（可选）
+# MCU 版本用公共 mcu_version；配置码用 base_station_config_expected（可选，公共区）
 # 过程实时阈值 NG 发 0x89[0x03]（step=4 除外）；扫码门闸失败 0x58+0x89，不上报 MES
 
 # omini_charge_min: 200
@@ -202,7 +202,7 @@ rv50air_duty_kpa_max: -18
 # omini_turbidity_max: 15000
 # omini_hot_diff_min: 20
 # omini_hot_diff_max: 250
-# omini_base_config_expected: "001.002.003"
+# base_station_config_expected 见公共区；不配则不比对
 
 # -----------------------------------------------------------------------------
 # §021  device_type=021  Omini 基站过气测试
@@ -210,7 +210,7 @@ rv50air_duty_kpa_max: -18
 # #[OMINIAIR-021-PROTO] 0x77 数据区 13 字节（布局同 §015）
 # 气压为 10Pa 计数；下列阈值为 kPa（含端点），比较前 raw×0.01
 # 某项 min/max 均为 0 → 不参与比较、不显示 UI、不上报 MES
-# 基站版本用公共 mcu_version；配置码用 ominiair_base_config_expected（可选）
+# 基站版本/配置码见公共 mcu_version、base_station_config_expected
 # 0x88：03=治具正常结束（须到过 step3 再判 enabled 项）；04=基站通讯失败；PC 不发 0x89
 
 # ominiair_clear_kpa_min: 20
@@ -219,7 +219,7 @@ rv50air_duty_kpa_max: -18
 # ominiair_mop_kpa_max: 230
 # ominiair_duty_kpa_min: -30
 # ominiair_duty_kpa_max: -18
-# ominiair_base_config_expected: "001.002.003"
+# base_station_config_expected 见公共区
 
 # -----------------------------------------------------------------------------
 # §022  device_type=022  Omini 基站过水测试
@@ -227,7 +227,7 @@ rv50air_duty_kpa_max: -18
 # #[OMINIWATER-022-PROTO] 0x77 数据区 22 字节（布局同 §016）
 # 水量/液位：不配或 -1 → 不参与比较、不显示 UI、不上报 MES；四路水量分别配置
 # 温度 ADC：某项 min/max 均为 0 → 不参与比较
-# 基站版本用公共 mcu_version；配置码用 ominiwater_base_config_expected（可选）
+# 基站版本/配置码见公共 mcu_version、base_station_config_expected
 # 0x88：03=治具正常结束（须到过 step3 再判 enabled 项）；04=基站通讯失败；PC 不发 0x89
 
 # ominiwater_clear_volume_expected: 3
@@ -241,14 +241,14 @@ rv50air_duty_kpa_max: -18
 # ominiwater_right_mop_temp_max: 1800
 # ominiwater_base_hot_temp_min: 600
 # ominiwater_base_hot_temp_max: 1300
-# ominiwater_base_config_expected: "001.002.003"
+# base_station_config_expected 见公共区
 
 # -----------------------------------------------------------------------------
 # §016  device_type=016  RV50 基站过水测试
 # -----------------------------------------------------------------------------
 # #[RV50-016-WATER-PROTO] 0x77 数据区 22 字节：原 16 字节 + dat[16..18]基站版本 + dat[19..21]基站配置码
 # 四路水量 u16==期望值；清洁剂液位单字节==期望值；温度为 ADC（含端点）
-# 基站版本/配置码阈值见公共 mcu_version、rv50_base_config_expected
+# 基站版本/配置码阈值见公共 mcu_version、base_station_config_expected
 # 0x88：03=治具正常结束（再判全项）；04=治具与基站通讯失败；PC 不发 0x89
 
 rv50water_volume_expected: 3

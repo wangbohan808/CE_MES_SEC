@@ -66,7 +66,7 @@
 | 充电 | `omini_charge_min/max` | 同上 |
 | 红外/步骤四期望 | `omini_ir_*` / `omini_*_expected` | **值非 0** |
 | MCU 版本 | 公共 `mcu_version` | 非空字符串 |
-| 基站配置码 | `omini_base_config_expected` | 非空字符串 |
+| 基站配置码 | `base_station_config_expected`（公共） | 非空字符串 |
 | 热风 start/end | — | 仅当 `hot_diff` enabled 时 **监视显示**（不参与 NG） |
 
 ### 3.2 `omini_field_ok` 返回值
@@ -110,7 +110,7 @@ omini_clear_tank_expected: 0x03
 omini_suction_kpa_min: 17
 omini_suction_kpa_max: 30
 mcu_version: "002.001.078"
-# omini_base_config_expected: "001.002.003"  # 可选
+# base_station_config_expected: "001.002.003"  # 公共区，可选
 ```
 
 ---
@@ -132,7 +132,7 @@ mcu_version: "002.001.078"
 OMINI_FIELD_REGISTRY = [
     {"field": "dev_ver", "kind": "version", "ui": "mcu_ver", "mes": "MCU版本", "active_from_step": 4},
     {"field": "base_config", "kind": "string", "ui": "base_station_config", "mes": "基站配置码",
-     "expect_attr": "omini_base_config_expected", "active_from_step": 4},
+     "expect_attr": "base_station_config_expected", "active_from_step": 4},
     {"field": "charge", "kind": "range", "ui": "charge_value", "mes": "充电电流",
      "min_attr": "omini_charge_min", "max_attr": "omini_charge_max", "active_from_step": 1},
     {"field": "ir_l", "kind": "expected", "ui": "ir_code_left", "mes": "左回充码",
