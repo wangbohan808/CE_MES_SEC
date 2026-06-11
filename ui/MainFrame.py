@@ -192,6 +192,7 @@ heading_line_dict = {
 
 
     "015": "过气测试治具",
+    "021": "Omini过气测试",
     "016": "过水测试治具",
     "017": "全功能测试",
     "018": "基站PCBA测试",
@@ -360,6 +361,8 @@ class MainFrame(wx.Frame):
             item_temp = rv50pcba_item_result
         elif int(test.load_cfg.dev) == 15:
             item_temp = rv50air_item_result
+        elif int(test.load_cfg.dev) == 21:  # #[OMINIAIR-021-PROTO] 按 config 动态生成测试格
+            item_temp = test.ominiair_build_item_result()
         elif int(test.load_cfg.dev) == 16:
             item_temp = rv50water_item_result
 
@@ -415,8 +418,8 @@ class MainFrame(wx.Frame):
         # [FX_TODO]
         # if int(dev) > 100:
         #     test_static_box.Hide()
-        # [up_test_ui_WBH] RV30(50)、RV50全功能(17)、RV50 PCBA(18)、RV50过气(15)、RV50过水(16) 显示测试格
-        if int(dev) not in (50, 17, 18, 15, 16):
+        # [up_test_ui_WBH] RV30(50)、RV50全功能(17)、RV50 PCBA(18)、RV50过气(15)、RV50过水(16)、Omini过气(21) 显示测试格
+        if int(dev) not in (50, 17, 18, 15, 16, 21):
             test_static_box.Hide()
 
 

@@ -104,6 +104,14 @@ class LoadCfg:
     rv50air_duty_kpa_min: float = -30.0
     rv50air_duty_kpa_max: float = -18.0
     rv50air_base_config_expected: str = ""
+    # #[OMINIAIR-021-PROTO] device_type=021 Omini 基站过气（帧 dev=0x15）；0=不参与比较
+    ominiair_clear_kpa_min: float = 0.0
+    ominiair_clear_kpa_max: float = 0.0
+    ominiair_mop_kpa_min: float = 0.0
+    ominiair_mop_kpa_max: float = 0.0
+    ominiair_duty_kpa_min: float = 0.0
+    ominiair_duty_kpa_max: float = 0.0
+    ominiair_base_config_expected: str = ""
     # #[RV50-016-WATER-PROTO] device_type=016 基站过水（帧 dev=0x10）
     rv50water_volume_expected: int = 3
     rv50water_cleaner_level_expected: int = 3
@@ -229,6 +237,17 @@ rv50air_session_state = RV50AIR_SESS_IDLE
 rv50air_last_step = -1
 rv50air_last_p = None
 rv50air_got_step3 = False
+
+# #[OMINIAIR-021-PROTO] Omini 基站过气 device_type=021，帧设备字节 0x15
+OMINIAIR_77_DATA_LEN = 13
+OMINIAIR_SESS_IDLE = 0
+OMINIAIR_SESS_WAIT_SN = 1
+OMINIAIR_SESS_RUNNING = 2
+OMINIAIR_SESS_FINISHED = 3
+ominiair_session_state = OMINIAIR_SESS_IDLE
+ominiair_last_step = -1
+ominiair_last_p = None
+ominiair_got_step3 = False
 
 # #[RV50-016-WATER-PROTO] RV50 基站过水 device_type=016，帧设备字节 0x10
 RV50WATER_77_DATA_LEN = 22
@@ -586,6 +605,9 @@ def barcode_check_process():
     global rv50air_session_state
     global rv50air_last_step
     global rv50air_got_step3
+    global ominiair_session_state
+    global ominiair_last_step
+    global ominiair_got_step3
     global rv50water_session_state
     global rv50water_last_step
     global rv50water_got_step3
@@ -733,6 +755,10 @@ def barcode_check_process():
                     rv50air_session_state = RV50AIR_SESS_RUNNING
                     rv50air_last_step = -1
                     rv50air_got_step3 = False
+                elif int(load_cfg.dev) == 21:  # #[OMINIAIR-021-PROTO]
+                    ominiair_session_state = OMINIAIR_SESS_RUNNING
+                    ominiair_last_step = -1
+                    ominiair_got_step3 = False
                 elif int(load_cfg.dev) == 16:  # #[RV50-016-WATER-PROTO]
                     rv50water_session_state = RV50WATER_SESS_RUNNING
                     rv50water_last_step = -1
@@ -903,6 +929,23 @@ def load_config():
         config.get("rv50air_base_config_expected",
                    getattr(load_cfg, "rv50_base_config_expected", "")))
     load_cfg.rv50air_base_config_expected = load_cfg.rv50_base_config_expected
+
+    # #[OMINIAIR-021-PROTO] 三路气压阈值（kPa）；缺省 0 表示不参与比较
+    load_cfg.ominiair_clear_kpa_min = float(
+        config.get("ominiair_clear_kpa_min", getattr(load_cfg, "ominiair_clear_kpa_min", 0.0)))
+    load_cfg.ominiair_clear_kpa_max = float(
+        config.get("ominiair_clear_kpa_max", getattr(load_cfg, "ominiair_clear_kpa_max", 0.0)))
+    load_cfg.ominiair_mop_kpa_min = float(
+        config.get("ominiair_mop_kpa_min", getattr(load_cfg, "ominiair_mop_kpa_min", 0.0)))
+    load_cfg.ominiair_mop_kpa_max = float(
+        config.get("ominiair_mop_kpa_max", getattr(load_cfg, "ominiair_mop_kpa_max", 0.0)))
+    load_cfg.ominiair_duty_kpa_min = float(
+        config.get("ominiair_duty_kpa_min", getattr(load_cfg, "ominiair_duty_kpa_min", 0.0)))
+    load_cfg.ominiair_duty_kpa_max = float(
+        config.get("ominiair_duty_kpa_max", getattr(load_cfg, "ominiair_duty_kpa_max", 0.0)))
+    load_cfg.ominiair_base_config_expected = str(
+        config.get("ominiair_base_config_expected",
+                   getattr(load_cfg, "ominiair_base_config_expected", ""))).strip()
 
     # #[RV50-016-WATER-PROTO] 过水判据（水量/液位为 u16 或单字节期望值；温度为 ADC 含端点）
     load_cfg.rv50water_volume_expected = int(
@@ -1227,6 +1270,8 @@ def test_cmd_handle(dev, cmd, dat):
             RV50_water_mode(dev, cmd, dat)
         elif int(dev) == 15:  # #[RV50-015-AIR-PROTO] 帧设备字节 0x0F
             RV50_air_mode(dev, cmd, dat)
+        elif int(dev) == 21:  # #[OMINIAIR-021-PROTO] 帧设备字节 0x15
+            Omini_air_mode(dev, cmd, dat)
         elif int(dev) == 17:  # #[RV50-017-PROTO]
             RV50_finished_product_mode(dev, cmd, dat)
         elif int(dev) == 18:  # #[RV50-018-PCBA-PROTO] 帧设备字节 0x12
@@ -4944,6 +4989,370 @@ def RV50_air_mode(dev, cmd, dat):
     #     print("[RV50-015-AIR] 忽略 0x68 len=" + str(len(dat)))
     # else:
     #     print("[RV50-015-AIR] 未处理命令 cmd=" + hex(cmd))
+
+
+# ---------- #[OMINIAIR-021-PROTO] Omini 基站过气（device_type=021，帧 dev=0x15）----------
+OMINIAIR_UI_LABELS = {
+    "clear_water_pressure": "清水通路气压(kPa)：",
+    "duty_water_pressure": "污水通路气压(kPa)：",
+    "mop_water_pressure": "拖布通路气压(kPa)：",
+    "base_station_ver": "基站版本：",
+    "base_station_config": "基站配置码：",
+}
+
+OMINIAIR_FIELD_REGISTRY = [
+    {"field": "clear", "kind": "range_kpa", "ui": "clear_water_pressure", "mes": "清水通路气压",
+     "min_attr": "ominiair_clear_kpa_min", "max_attr": "ominiair_clear_kpa_max"},
+    {"field": "mop", "kind": "range_kpa", "ui": "mop_water_pressure", "mes": "拖布通路气压",
+     "min_attr": "ominiair_mop_kpa_min", "max_attr": "ominiair_mop_kpa_max"},
+    {"field": "duty", "kind": "range_kpa", "ui": "duty_water_pressure", "mes": "污水通路气压",
+     "min_attr": "ominiair_duty_kpa_min", "max_attr": "ominiair_duty_kpa_max"},
+    {"field": "base_ver", "kind": "version", "ui": "base_station_ver", "mes": "基站版本"},
+    {"field": "base_config", "kind": "string", "ui": "base_station_config", "mes": "基站配置码",
+     "expect_attr": "ominiair_base_config_expected"},
+]
+
+
+def _ominiair_kpa_range_enabled(lo, hi):
+    return not (float(lo) == 0.0 and float(hi) == 0.0)
+
+
+def _ominiair_registry_entry(field):
+    for entry in OMINIAIR_FIELD_REGISTRY:
+        if entry["field"] == field:
+            return entry
+    return None
+
+
+def ominiair_field_enabled(field):
+    entry = _ominiair_registry_entry(field)
+    if entry is None:
+        return False
+    kind = entry["kind"]
+    if kind == "range_kpa":
+        lo = getattr(load_cfg, entry["min_attr"], 0.0)
+        hi = getattr(load_cfg, entry["max_attr"], 0.0)
+        return _ominiair_kpa_range_enabled(lo, hi)
+    if kind == "version":
+        return bool((load_cfg.mcu_ver or "").strip())
+    if kind == "string":
+        expect = getattr(load_cfg, entry.get("expect_attr", ""), "")
+        return bool(str(expect).strip())
+    return False
+
+
+def ominiair_build_item_result():
+    items = []
+    for entry in OMINIAIR_FIELD_REGISTRY:
+        if ominiair_field_enabled(entry["field"]):
+            ui = entry["ui"]
+            items.append({ui: [OMINIAIR_UI_LABELS[ui], "", "white"]})
+    return items
+
+
+def ominiair_reset_session():
+    global ominiair_session_state, ominiair_last_step, ominiair_last_p, ominiair_got_step3
+    ominiair_session_state = OMINIAIR_SESS_IDLE
+    ominiair_last_step = -1
+    ominiair_last_p = None
+    ominiair_got_step3 = False
+
+
+def ominiair_parse_77(dat):
+    if len(dat) < OMINIAIR_77_DATA_LEN:
+        print("[OMINI-021-AIR] 0x77 数据区长度不足: got", len(dat),
+              "need", OMINIAIR_77_DATA_LEN)
+        return None
+    raw_clear = rv50air_u16_be(dat[1], dat[2])
+    raw_mop = rv50air_u16_be(dat[3], dat[4])
+    raw_duty = wsxqmx_bytes_to_int16(dat[5], dat[6])
+    return {
+        "step": int(dat[0]),
+        "clear_kpa": wsxqmx_raw_to_kpa(raw_clear),
+        "mop_kpa": wsxqmx_raw_to_kpa(raw_mop),
+        "duty_kpa": wsxqmx_raw_to_kpa(raw_duty),
+        "base_ver": rv50_fmt_ver_3bytes(dat, 7),
+        "base_config": rv50_fmt_ver_3bytes(dat, 10),
+    }
+
+
+def ominiair_kpa_limits(field):
+    entry = _ominiair_registry_entry(field)
+    if entry is None:
+        return 0.0, 0.0
+    return (
+        float(getattr(load_cfg, entry["min_attr"], 0.0)),
+        float(getattr(load_cfg, entry["max_attr"], 0.0)),
+    )
+
+
+def ominiair_field_ok(p, field):
+    if not ominiair_field_enabled(field):
+        return None
+    if p is None:
+        return False
+    entry = _ominiair_registry_entry(field)
+    if entry is None:
+        return None
+    kind = entry["kind"]
+    if kind == "range_kpa":
+        kpa = p.get({"clear": "clear_kpa", "mop": "mop_kpa", "duty": "duty_kpa"}.get(field))
+        if kpa is None:
+            return False
+        lo, hi = ominiair_kpa_limits(field)
+        if lo > hi:
+            lo, hi = hi, lo
+        return lo <= kpa <= hi
+    if kind == "version":
+        expect = (load_cfg.mcu_ver or "").strip()
+        actual = p.get("base_ver")
+        if not actual:
+            return False
+        return actual == expect
+    if kind == "string":
+        expect = str(getattr(load_cfg, entry.get("expect_attr", ""), "")).strip()
+        actual = p.get("base_config")
+        if not actual:
+            return False
+        return actual == expect
+    return None
+
+
+def ominiair_all_ok(p):
+    if p is None:
+        return False
+    for entry in OMINIAIR_FIELD_REGISTRY:
+        ok = ominiair_field_ok(p, entry["field"])
+        if ok is False:
+            return False
+    return True
+
+
+def ominiair_fmt_kpa(kpa):
+    if kpa is None:
+        return ""
+    return "{:.2f}".format(kpa)
+
+
+def ominiair_step_notify(step):
+    st = int(step)
+    if st == 1:
+        msg = "进入产测"
+    elif st == 2:
+        msg = "测试中"
+    elif st == 3:
+        msg = "结果上传"
+    else:
+        msg = "治具步骤：" + str(st)
+    wx.CallAfter(MainFrame.main_frame.up_notification_ui, second=msg, color=wx.BLUE)
+
+
+def _ominiair_kpa_field_ok(field, kpa):
+    if not ominiair_field_enabled(field):
+        return None
+    if kpa is None:
+        return False
+    lo, hi = ominiair_kpa_limits(field)
+    if lo > hi:
+        lo, hi = hi, lo
+    return lo <= kpa <= hi
+
+
+def ominiair_ui_result_for_kpa(field, kpa, finalize):
+    if not finalize:
+        return "monitor", ominiair_fmt_kpa(kpa)
+    ok = _ominiair_kpa_field_ok(field, kpa)
+    if ok is None or ok is True:
+        return "pass", ominiair_fmt_kpa(kpa)
+    return "fail", ominiair_fmt_kpa(kpa)
+
+
+def ominiair_string_field_ok(field, actual):
+    if field == "base_ver":
+        expect = (load_cfg.mcu_ver or "").strip()
+    elif field == "base_config":
+        expect = (load_cfg.ominiair_base_config_expected or "").strip()
+    else:
+        return None
+    if not expect:
+        return None
+    if not actual:
+        return False
+    return actual == expect
+
+
+def ominiair_ui_result_for_string(field, value, finalize):
+    disp = value or ""
+    if not finalize:
+        return "monitor", disp
+    ok = ominiair_string_field_ok(field, value)
+    if ok is None or ok is True:
+        return "pass", disp
+    return "fail", disp
+
+
+def _ominiair_refresh_test_ui_impl(p, finalize):
+    if p is None:
+        return
+    _kpa_map = {
+        "clear": p.get("clear_kpa"),
+        "mop": p.get("mop_kpa"),
+        "duty": p.get("duty_kpa"),
+    }
+    for entry in OMINIAIR_FIELD_REGISTRY:
+        field = entry["field"]
+        if not ominiair_field_enabled(field):
+            continue
+        if entry["kind"] == "range_kpa":
+            res, val = ominiair_ui_result_for_kpa(field, _kpa_map.get(field), finalize)
+        elif field == "base_ver":
+            res, val = ominiair_ui_result_for_string("base_ver", p.get("base_ver"), finalize)
+        elif field == "base_config":
+            res, val = ominiair_ui_result_for_string("base_config", p.get("base_config"), finalize)
+        else:
+            continue
+        MainFrame.main_frame.up_test_ui(name=entry["ui"], result=res, value=val)
+
+
+def ominiair_refresh_test_ui_callafter(p, finalize=False):
+    wx.CallAfter(_ominiair_refresh_test_ui_impl, p, finalize)
+
+
+def ominiair_add_string_report(name, field, value):
+    ok = ominiair_string_field_ok(field, value)
+    if ok is None:
+        return
+    result = "OK" if ok else "NG"
+    if field == "base_ver":
+        expect = load_cfg.mcu_ver
+    else:
+        expect = load_cfg.ominiair_base_config_expected
+    mes_run.add_report(
+        name=name, result=result, value=value or "",
+        val_min=expect, val_max=expect,
+    )
+
+
+def ominiair_add_reports(p):
+    if p is None:
+        for entry in OMINIAIR_FIELD_REGISTRY:
+            if not ominiair_field_enabled(entry["field"]):
+                continue
+            mes_run.add_report(name=entry["mes"], result="NG", value="无数据")
+        return
+    for entry in OMINIAIR_FIELD_REGISTRY:
+        field = entry["field"]
+        if not ominiair_field_enabled(field):
+            continue
+        if entry["kind"] == "range_kpa":
+            kpa_key = {"clear": "clear_kpa", "mop": "mop_kpa", "duty": "duty_kpa"}[field]
+            kpa = p.get(kpa_key)
+            lo, hi = ominiair_kpa_limits(field)
+            mes_run.add_report(
+                name=entry["mes"],
+                result="OK" if _ominiair_kpa_field_ok(field, kpa) else "NG",
+                value=ominiair_fmt_kpa(kpa),
+                val_min=lo,
+                val_max=hi,
+            )
+        elif field == "base_ver":
+            ominiair_add_string_report(entry["mes"], "base_ver", p.get("base_ver"))
+        elif field == "base_config":
+            ominiair_add_string_report(entry["mes"], "base_config", p.get("base_config"))
+
+
+def ominiair_finalize_88(dev, dat):
+    global test_end_time, ominiair_session_state, ominiair_last_p, ominiair_got_step3
+    test_end_time = datetime.now()
+    print("[OMINI-021-AIR] 测试结束帧 dat=" + str(dat))
+
+    res_byte = dat[0] if len(dat) else 0xFF
+    if res_byte == 0x04:
+        mes_run.add_report(name="基站通讯", result="NG", value="治具与基站通讯失败")
+        mes_ret = mes_run.send_report(test_start_time, test_end_time, check_sn_str, "NG")
+        if mes_ret:
+            wx.CallAfter(MainFrame.main_frame.up_notification_ui,
+                         second="治具与基站通讯失败", color=wx.RED)
+        clear_sn_save_list()
+        ominiair_session_state = OMINIAIR_SESS_FINISHED
+        ominiair_reset_session()
+        return
+
+    if res_byte != 0x03:
+        mes_run.add_report(name="结束码", result="NG", value=hex(res_byte))
+        res_display_str = "测试结束 NG（结束码 {}）".format(hex(res_byte))
+        mes_ret = mes_run.send_report(test_start_time, test_end_time, check_sn_str, "NG")
+        if mes_ret:
+            wx.CallAfter(MainFrame.main_frame.up_notification_ui,
+                         second=res_display_str, color=wx.RED)
+        clear_sn_save_list()
+        ominiair_session_state = OMINIAIR_SESS_FINISHED
+        ominiair_reset_session()
+        return
+
+    p = ominiair_last_p
+    mes_ok = ominiair_got_step3 and p is not None and ominiair_all_ok(p)
+    ominiair_add_reports(p)
+    if mes_ok:
+        res_display_str = "测试完成 PASS"
+        text_color = wx.GREEN
+        mes_ret = mes_run.send_report(test_start_time, test_end_time, check_sn_str, "OK")
+    else:
+        if not ominiair_got_step3:
+            res_display_str = "测试结束 NG（未到结果上传步骤）"
+        elif p is None:
+            res_display_str = "测试结束 NG（无结果数据）"
+        else:
+            res_display_str = "测试结束 NG（测试项未达标）"
+        text_color = wx.RED
+        mes_ret = mes_run.send_report(test_start_time, test_end_time, check_sn_str, "NG")
+
+    if p is not None:
+        ominiair_refresh_test_ui_callafter(p, finalize=True)
+    if mes_ret:
+        wx.CallAfter(MainFrame.main_frame.up_notification_ui,
+                     second=res_display_str, color=text_color)
+    clear_sn_save_list()
+    ominiair_session_state = OMINIAIR_SESS_FINISHED
+    ominiair_reset_session()
+
+
+def Omini_air_mode(dev, cmd, dat):
+    global test_start_time, check_sn_enable
+    global ominiair_session_state, ominiair_last_step, ominiair_last_p, ominiair_got_step3
+
+    if len(dat) <= 0:
+        print("[OMINI-021-AIR] len=0 无有效数据")
+        return
+
+    if cmd == 0x66:
+        if dat[0] == 0x00:
+            test_start_time = datetime.now()
+            mes_run.clear_report()
+            tool.clear_queue(barcode_q)
+            check_sn_enable = True
+            ominiair_reset_session()
+            ominiair_session_state = OMINIAIR_SESS_WAIT_SN
+            print("[OMINI-021-AIR] 请扫码")
+            wx.CallAfter(MainFrame.main_frame.reset_ui)
+            wx.CallAfter(MainFrame.main_frame.up_notification_ui, second="请扫码")
+    elif cmd == 0x77:
+        if ominiair_session_state != OMINIAIR_SESS_RUNNING:
+            return
+        p = ominiair_parse_77(dat)
+        if p is None:
+            return
+        ominiair_last_p = p
+        st = int(p["step"])
+        print("[OMINI-021-AIR] 0x77 step=" + str(st) + " p=" + str(p))
+        ominiair_refresh_test_ui_callafter(p, finalize=False)
+        if st == 3:
+            ominiair_got_step3 = True
+        if st != ominiair_last_step:
+            ominiair_last_step = st
+            ominiair_step_notify(st)
+    elif cmd == 0x88:
+        ominiair_finalize_88(dev, dat)
 
 
 charge_value = 0
