@@ -58,6 +58,7 @@ class LoadCfg:
     mes: str = "3"       # 是否使用mes
     mcu_ver: str = ""    # 集尘桶或集尘桶PCB软件版本
     base_station_config_expected: str = ""  # 015/021：0x57 下发；其它工位 0x77 比对（格式 XX.XX.XX 十六进制）
+    show_base_station_config_ui: int = 1  # 0=不显示「基站配置码」测试格  1=显示
     test_tool: str = ""  # 治具名称或编码
     parts_sn_head: str = ""  # 103 配件纸盒条码头，前7位
     project_name: str = ""   # 项目代号
@@ -1078,6 +1079,11 @@ def config_triplet_matches(actual, expect):
     return a == e
 
 
+def base_station_config_ui_enabled():
+    """公共 show_base_station_config_ui：1=显示测试格，0=隐藏（不影响 MES/协议逻辑）。"""
+    return int(getattr(load_cfg, "show_base_station_config_ui", 1)) != 0
+
+
 # 加载配置文件
 def load_config():
     # [WEIGH-106] 读取 weight_min_kg / weight_max_kg / weight_read_*（见文件内 YAML 赋值处）
@@ -1183,6 +1189,9 @@ def load_config():
                    getattr(load_cfg, "base_station_config_expected", ""))).strip()
     _norm_base_cfg = normalize_config_triplet_hex(_raw_base_cfg)
     load_cfg.base_station_config_expected = _norm_base_cfg if _norm_base_cfg else _raw_base_cfg
+    load_cfg.show_base_station_config_ui = int(
+        config.get("show_base_station_config_ui",
+                   getattr(load_cfg, "show_base_station_config_ui", 1)))
 
     # #[OMINIAIR-021-PROTO] 三路气压阈值（kPa）；缺省 0 表示不参与比较
     load_cfg.ominiair_clear_kpa_min = float(
@@ -3029,6 +3038,8 @@ def omini_step4_enabled_modules():
 def omini_build_item_result():
     items = []
     for entry in OMINI_FIELD_REGISTRY:
+        if entry["ui"] == "base_station_config" and not base_station_config_ui_enabled():
+            continue
         if omini_field_enabled(entry["field"]):
             ui = entry["ui"]
             items.append({ui: [OMINI_UI_LABELS[ui], "", "white"]})
@@ -6229,8 +6240,8 @@ def ominiair_build_item_result():
     for entry in OMINIAIR_FIELD_REGISTRY:
         field = entry["field"]
         if field == "base_config":
-            # #[OMINIAIR-CONFIG-READBACK] 始终显示 0x77 回读；是否参与终判见 ominiair_field_enabled
-            items.append({entry["ui"]: [OMINIAIR_UI_LABELS[entry["ui"]], "", "white"]})
+            if base_station_config_ui_enabled():
+                items.append({entry["ui"]: [OMINIAIR_UI_LABELS[entry["ui"]], "", "white"]})
         elif ominiair_field_enabled(field):
             items.append({entry["ui"]: [OMINIAIR_UI_LABELS[entry["ui"]], "", "white"]})
     return items
@@ -6617,6 +6628,8 @@ def ominiwater_field_enabled(field):
 def ominiwater_build_item_result():
     items = []
     for entry in OMINIWATER_FIELD_REGISTRY:
+        if entry["ui"] == "base_station_config" and not base_station_config_ui_enabled():
+            continue
         if ominiwater_field_enabled(entry["field"]):
             ui = entry["ui"]
             items.append({ui: [OMINIWATER_UI_LABELS[ui], "", "white"]})

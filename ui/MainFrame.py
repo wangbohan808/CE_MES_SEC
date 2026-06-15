@@ -372,6 +372,9 @@ class MainFrame(wx.Frame):
         elif int(test.load_cfg.dev) == 16:
             item_temp = rv50water_item_result
 
+        if not test.base_station_config_ui_enabled():
+            item_temp = [x for x in item_temp if "base_station_config" not in x]
+
         if len(item_temp) % 3 == 0:
             row = len(item_temp) // 3
         else:
