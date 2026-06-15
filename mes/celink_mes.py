@@ -25,9 +25,9 @@ station_sn_code = {
     "105": "HNJZNYCS",  # 耐压测试
     "016": "HNJZGSCS",  # 过水测试
     "015": "HNJZQMXCS",  # 气密性测试
-    "021": "HNOMINIQMXCS",  # #[OMINIAIR-021-PROTO] Omini 基站过气（站码待定）
-    "022": "HNOMINIGSCS",  # #[OMINIWATER-022-PROTO] Omini 基站过水（站码待定）
-    "020": "HNOMINIGGNCS",  # #[OMINI-020-PROTO] Omini 基站全功能（站码待定）
+    "021": "HNJZQMXCS",  # #[OMINIAIR-021-PROTO] Omini 基站过气（站码待定）
+    "022": "HNJZGSCS",  # #[OMINIWATER-022-PROTO] Omini 基站过水（站码待定）
+    "020": "HNJZQGNCS",  # #[OMINI-020-PROTO] Omini 基站全功能（站码待定）
     "050":"HNXJCTQGNCS", # RV30全功能
     "106": "HNBZCZ"      # 站位码-称重测试  
 }
@@ -48,9 +48,9 @@ station_report_code = {
     "105": "HNJZNYCS",  # 耐压测试
     "016": "HNJZGSCS",  # 过水测试
     "015": "HNJZQMXCS",  # 气密性测试
-    "021": "HNOMINIQMXCS",  # #[OMINIAIR-021-PROTO] Omini 基站过气（站码待定）
-    "022": "HNOMINIGSCS",  # #[OMINIWATER-022-PROTO] Omini 基站过水（站码待定）
-    "020": "HNOMINIGGNCS",  # #[OMINI-020-PROTO] Omini 基站全功能（站码待定）
+    "021": "HNJZQMXCS",  # #[OMINIAIR-021-PROTO] Omini 基站过气（站码待定）
+    "022": "HNJZGSCS",  # #[OMINIWATER-022-PROTO] Omini 基站过水（站码待定）
+    "020": "HNJZQGNCS",  # #[OMINI-020-PROTO] Omini 基站全功能（站码待定）
     "050":"HNXJCTQGNCS", # RV30全功能
     "106": "HNBZCZ"      # 站位码-称重测试  
 }

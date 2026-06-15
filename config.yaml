@@ -7,13 +7,13 @@
 # -----------------------------------------------------------------------------
 # 公共配置（所有工位）
 # -----------------------------------------------------------------------------
-device_type: "050"          # 当前工位，完整列表见文末「device_type 索引」
-project_name: "RV30"         # 窗口标题前缀（如 HW1、RV50、C10B）
+device_type: "020"          # 当前工位，完整列表见文末「device_type 索引」
+project_name: "Omini"         # 窗口标题前缀（如 HW1、RV50、C10B）
 use_mes: "2"                # MES：1=海能+安克  2=仅海能  3=仅安克
 user_com: ""                # 串口 COMx；留空则自动识别（需唯一可用口）
 mcu_version: "005.001.030"  # 基站/MCU 版本；RV50/Omini 015~022 共用
-base_station_config_expected: "00.00.17"  # 加载时规范为 XX.XX.XX（十六进制）；015/021 经 0x57 下发；016/017/020/022 与 0x77 读回比对，不配则跳过
-show_base_station_config_ui: 1           # 0=不显示「基站配置码」测试格  1=显示（各工位原有显示规则不变）
+base_station_config_expected: "FF.FF.FF"  # 加载时规范为 XX.XX.XX（十六进制）；015/021 经 0x57 下发；016/017/020/022 与 0x77 读回比对，不配则跳过
+show_base_station_config_ui: 0           # 0=不显示「基站配置码」测试格，并且配置码配置为"FF.FF.FF"  1=显示（各工位原有显示规则不变）
 # test_tool: "治具未编码"   # 治具名称/编码（海能 MES，可选）
 
 # -----------------------------------------------------------------------------
@@ -176,33 +176,33 @@ rv50air_duty_kpa_max: -18
 # MCU 版本用公共 mcu_version；配置码用 base_station_config_expected（可选，公共区）
 # 过程实时阈值 NG 发 0x89[0x03]（step=4 除外）；扫码门闸失败 0x58+0x89，不上报 MES
 
-# omini_charge_min: 200
-# omini_charge_max: 3000
-# omini_ir_l: 0x44
-# omini_ir_r: 0x42
-# omini_ir_n: 0x48
-# omini_clear_tank_expected: 0x03
-# omini_duty_tank_expected: 0x03
-# omini_dust_expected: 0x03
-# omini_clean_base_expected: 0x03
-# omini_suction_kpa_min: 17
-# omini_suction_kpa_max: 30
-# omini_clean_pump_min: 50
-# omini_clean_pump_max: 350
-# omini_vacuum_pump_min: 50
-# omini_vacuum_pump_max: 200
-# omini_base_level_up_min: 3000
-# omini_base_level_up_max: 4095
-# omini_base_level_down_min: 0
-# omini_base_level_down_max: 1000
-# omini_em_valve_min: 100
-# omini_em_valve_max: 500
-# omini_wash_pump_min: 50
-# omini_wash_pump_max: 350
-# omini_turbidity_min: 5000
-# omini_turbidity_max: 15000
-# omini_hot_diff_min: 20
-# omini_hot_diff_max: 250
+omini_charge_min: 200
+omini_charge_max: 3000
+omini_ir_l: 0x44
+omini_ir_r: 0x42
+omini_ir_n: 0x48
+omini_clear_tank_expected: 0x03
+omini_duty_tank_expected: 0x03
+omini_dust_expected: 0x03
+omini_clean_base_expected: 0x03
+omini_suction_kpa_min: 17
+omini_suction_kpa_max: 30
+# omini_clean_pump_min: 
+# omini_clean_pump_max: 
+omini_vacuum_pump_min: 50
+omini_vacuum_pump_max: 200
+omini_base_level_up_min: 3000
+omini_base_level_up_max: 4095
+omini_base_level_down_min: 0
+omini_base_level_down_max: 1000
+omini_em_valve_min: 100
+omini_em_valve_max: 500
+omini_wash_pump_min: 50
+omini_wash_pump_max: 350
+# omini_turbidity_min: 
+# omini_turbidity_max: 
+omini_hot_diff_min: 20
+omini_hot_diff_max: 250
 # base_station_config_expected 见公共区；不配则不比对
 
 # -----------------------------------------------------------------------------
@@ -214,12 +214,12 @@ rv50air_duty_kpa_max: -18
 # 基站版本见公共 mcu_version；配置码经 0x57 下发，0x77 回读终判比对（测试格始终显示回读；不配期望则不着色）
 # 0x88：03=治具正常结束（须到过 step3 再判 enabled 项）；04=基站通讯失败；PC 不发 0x89
 
-# ominiair_clear_kpa_min: 20
-# ominiair_clear_kpa_max: 80
-# ominiair_mop_kpa_min: 20
-# ominiair_mop_kpa_max: 230
-# ominiair_duty_kpa_min: -30
-# ominiair_duty_kpa_max: -18
+ominiair_clear_kpa_min: 20
+ominiair_clear_kpa_max: 80
+ominiair_mop_kpa_min: 20
+ominiair_mop_kpa_max: 230
+ominiair_duty_kpa_min: -30
+ominiair_duty_kpa_max: -18
 # base_station_config_expected 见公共区
 
 # -----------------------------------------------------------------------------
@@ -231,17 +231,17 @@ rv50air_duty_kpa_max: -18
 # 基站版本/配置码见公共 mcu_version、base_station_config_expected
 # 0x88：03=治具正常结束（须到过 step3 再判 enabled 项）；04=基站通讯失败；PC 不发 0x89
 
-# ominiwater_clear_volume_expected: 3
-# ominiwater_duty_volume_expected: 3
-# ominiwater_left_mop_volume_expected: 3
-# ominiwater_right_mop_volume_expected: 3
-# ominiwater_cleaner_level_expected: 3
-# ominiwater_left_mop_temp_min: 800
-# ominiwater_left_mop_temp_max: 1800
-# ominiwater_right_mop_temp_min: 800
-# ominiwater_right_mop_temp_max: 1800
-# ominiwater_base_hot_temp_min: 600
-# ominiwater_base_hot_temp_max: 1300
+ominiwater_clear_volume_expected: 3
+ominiwater_duty_volume_expected: 3
+ominiwater_left_mop_volume_expected: 3
+ominiwater_right_mop_volume_expected: 3
+# ominiwater_cleaner_level_expected: 
+ominiwater_left_mop_temp_min: 800
+ominiwater_left_mop_temp_max: 1800
+ominiwater_right_mop_temp_min: 800
+ominiwater_right_mop_temp_max: 1800
+# ominiwater_base_hot_temp_min: 
+# ominiwater_base_hot_temp_max: 
 # base_station_config_expected 见公共区
 
 # -----------------------------------------------------------------------------
