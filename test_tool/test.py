@@ -57,7 +57,7 @@ class LoadCfg:
     com: str = ""        # 串口端口 如：'COM1'
     mes: str = "3"       # 是否使用mes
     mcu_ver: str = ""    # 集尘桶或集尘桶PCB软件版本
-    base_station_config_expected: str = ""  # 015/021：0x57 下发；其它工位 0x77 比对（格式 NNN.NNN.NNN）
+    base_station_config_expected: str = ""  # 015/021：0x57 下发；其它工位 0x77 比对（格式 XX.XX.XX 十六进制）
     test_tool: str = ""  # 治具名称或编码
     parts_sn_head: str = ""  # 103 配件纸盒条码头，前7位
     project_name: str = ""   # 项目代号
@@ -1042,6 +1042,42 @@ def ver_triplet_matches(actual, expect):
     return a == e
 
 
+def normalize_config_triplet_hex(s):
+    """将配置码规范为 XX.XX.XX（每段两位小写十六进制）；非法则返回空字符串。"""
+    raw = (s or "").strip()
+    if not raw:
+        return ""
+    parts = raw.split(".")
+    if len(parts) != 3:
+        return ""
+    vals = []
+    for p in parts:
+        p = p.strip()
+        if p.lower().startswith("0x"):
+            p = p[2:]
+        if not p or len(p) > 2:
+            return ""
+        try:
+            v = int(p, 16)
+        except ValueError:
+            return ""
+        if v < 0 or v > 255:
+            return ""
+        vals.append(v)
+    return ".".join(format(v, "02x") for v in vals)
+
+
+def config_triplet_matches(actual, expect):
+    """三段配置码比对（十六进制）；期望值为空时返回 None（跳过该项）。"""
+    e = normalize_config_triplet_hex(expect)
+    if not e:
+        return None
+    a = normalize_config_triplet_hex(actual)
+    if not a:
+        return False
+    return a == e
+
+
 # 加载配置文件
 def load_config():
     # [WEIGH-106] 读取 weight_min_kg / weight_max_kg / weight_read_*（见文件内 YAML 赋值处）
@@ -1145,7 +1181,7 @@ def load_config():
     _raw_base_cfg = str(
         config.get("base_station_config_expected",
                    getattr(load_cfg, "base_station_config_expected", ""))).strip()
-    _norm_base_cfg = normalize_ver_string(_raw_base_cfg)
+    _norm_base_cfg = normalize_config_triplet_hex(_raw_base_cfg)
     load_cfg.base_station_config_expected = _norm_base_cfg if _norm_base_cfg else _raw_base_cfg
 
     # #[OMINIAIR-021-PROTO] 三路气压阈值（kPa）；缺省 0 表示不参与比较
@@ -2284,7 +2320,7 @@ def rv50_proto_parse_77_apply_globals(dat):
     dust_bug_install = int(dat[8])
     clean_base_install = int(dat[9])
     dev_ver = ".".join(format(int(dat[i]), "03d") for i in range(10, 13))
-    base_config = rv50_fmt_ver_3bytes(dat, 13)  # #[RV50-017-CONFIG-DISPLAY] 原保留位
+    base_config = rv50_fmt_config_3bytes(dat, 13)  # #[RV50-017-CONFIG-DISPLAY] 原保留位
     dust_collection_suction = _rv30_u16_be(dat[16], dat[17])
     clean_water_pump_current = _rv30_u16_be(dat[18], dat[19])
     duty_water_pump_current = _rv30_u16_be(dat[20], dat[21])
@@ -2455,7 +2491,7 @@ def rv50_field_ok(p, field):
     if field == "dev_ver":
         return ver_triplet_matches(p.get("dev_ver"), load_cfg.mcu_ver)
     if field == "base_config":
-        return ver_triplet_matches(p.get("base_config"), load_cfg.base_station_config_expected)
+        return config_triplet_matches(p.get("base_config"), load_cfg.base_station_config_expected)
     if field == "charge":
         ch = (
             load_cfg.rv50_charge_Hmin, load_cfg.rv50_charge_Lmin,
@@ -3055,7 +3091,7 @@ def omini_proto_parse_77_apply_globals(dat):
     dust_bug_install = int(dat[8])
     clean_base_install = int(dat[9])
     dev_ver = ".".join(format(int(dat[i]), "03d") for i in range(10, 13))
-    base_config = rv50_fmt_ver_3bytes(dat, 13)
+    base_config = rv50_fmt_config_3bytes(dat, 13)
     dust_collection_suction = _rv30_u16_be(dat[16], dat[17])
     clean_water_pump_current = _rv30_u16_be(dat[18], dat[19])
     duty_water_pump_current = _rv30_u16_be(dat[20], dat[21])
@@ -3111,7 +3147,7 @@ def omini_field_ok(p, field):
     if kind == "version":
         return ver_triplet_matches(p.get("dev_ver"), load_cfg.mcu_ver)
     if kind == "string":
-        return ver_triplet_matches(
+        return config_triplet_matches(
             p.get("base_config"), load_cfg.base_station_config_expected)
     if kind == "expected":
         if entry.get("step4_module"):
@@ -5364,15 +5400,19 @@ def rv50_fmt_ver_3bytes(dat, start):
     return ".".join(format(int(dat[i]), "03d") for i in range(start, start + 3))
 
 
+def rv50_fmt_config_3bytes(dat, start):
+    return ".".join(format(int(dat[i]) & 0xFF, "02x") for i in range(start, start + 3))
+
+
 # #[RV50-OMINI-AIR-CONFIG-PUSH] 015/021：config.yaml 配置码经 0x57 下发治具
-def rv50_parse_ver_string_to_bytes(ver_str):
-    norm = normalize_ver_string(ver_str)
+def rv50_parse_config_string_to_bytes(cfg_str):
+    norm = normalize_config_triplet_hex(cfg_str)
     if not norm:
-        s = (ver_str or "").strip()
+        s = (cfg_str or "").strip()
         if s:
-            print("[RV50-OMINI-AIR-CONFIG-PUSH] 配置码格式错误，需 NNN.NNN.NNN:", s)
+            print("[RV50-OMINI-AIR-CONFIG-PUSH] 配置码格式错误，需 XX.XX.XX（十六进制）:", s)
         return None
-    return [int(p) for p in norm.split(".")]
+    return [int(p, 16) for p in norm.split(".")]
 
 
 def rv50air_get_config_str():
@@ -5380,7 +5420,7 @@ def rv50air_get_config_str():
 
 
 def rv50air_build_57_payload(sn_list):
-    cfg_bytes = rv50_parse_ver_string_to_bytes(rv50air_get_config_str())
+    cfg_bytes = rv50_parse_config_string_to_bytes(rv50air_get_config_str())
     if cfg_bytes is None:
         return None
     return list(sn_list) + cfg_bytes
@@ -5461,7 +5501,7 @@ def rv50_omini_air_on_scan_pass(dev, sn_list):
     payload = rv50air_build_57_payload(sn_list)
     if payload is None:
         wx.CallAfter(MainFrame.main_frame.up_notification_ui,
-                     second="基站配置码未配置或格式错误（需 NNN.NNN.NNN）",
+                     second="基站配置码未配置或格式错误（需 XX.XX.XX 十六进制，如 00.00.17）",
                      color=wx.RED)
         return False
     cfg_str = rv50air_get_config_str()
@@ -5486,7 +5526,7 @@ def rv50_base_string_field_ok(field, actual):
     if field == "base_ver":
         return ver_triplet_matches(actual, load_cfg.mcu_ver)
     if field == "base_config":
-        return ver_triplet_matches(actual, load_cfg.base_station_config_expected)
+        return config_triplet_matches(actual, load_cfg.base_station_config_expected)
     return False
 
 
@@ -5546,7 +5586,7 @@ def rv50water_parse_77(dat):
         "cleaner_liquid_level": int(dat[13]) & 0xFF,
         "base_hot_water_temp": rv50water_u16_be(dat[14], dat[15]),
         "base_ver": rv50_fmt_ver_3bytes(dat, 16),
-        "base_config": rv50_fmt_ver_3bytes(dat, 19),
+        "base_config": rv50_fmt_config_3bytes(dat, 19),
     }
 
 
@@ -6312,7 +6352,7 @@ def ominiair_string_field_ok(field, actual):
     if field == "base_ver":
         return ver_triplet_matches(actual, load_cfg.mcu_ver)
     if field == "base_config":
-        return ver_triplet_matches(actual, load_cfg.base_station_config_expected)
+        return config_triplet_matches(actual, load_cfg.base_station_config_expected)
     return None
 
 
@@ -6638,7 +6678,7 @@ def ominiwater_field_ok(p, field):
     if kind == "version":
         return ver_triplet_matches(p.get("base_ver"), load_cfg.mcu_ver)
     if kind == "string":
-        return ver_triplet_matches(
+        return config_triplet_matches(
             p.get("base_config"), load_cfg.base_station_config_expected)
     return None
 
@@ -6710,7 +6750,7 @@ def ominiwater_string_field_ok(field, actual):
     if field == "base_ver":
         return ver_triplet_matches(actual, load_cfg.mcu_ver)
     if field == "base_config":
-        return ver_triplet_matches(actual, load_cfg.base_station_config_expected)
+        return config_triplet_matches(actual, load_cfg.base_station_config_expected)
     return None
 
 
