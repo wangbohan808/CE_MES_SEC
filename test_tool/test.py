@@ -297,7 +297,7 @@ ominiair_config_push_payload = None
 ominiair_config_push_last_ms = 0.0
 
 # #[RV50-OMINI-AIR-CONFIG-PUSH] 015/021：MES 通过后 0x57 帧尾带配置码，循环至首帧 0x77
-AIR_CONFIG_PUSH_INTERVAL_MS = 300
+AIR_CONFIG_PUSH_INTERVAL_MS = 500
 
 # #[OMINIWATER-022-PROTO] Omini 基站过水 device_type=022，帧设备字节 0x16
 OMINIWATER_77_DATA_LEN = 22
