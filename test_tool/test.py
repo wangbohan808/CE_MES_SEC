@@ -268,8 +268,8 @@ wsxqmx_last_step = -1
 wsxqmx_hold_pressure_kpa = None  # [WSXQMX-019] 步骤03锁存的保压结束气压（kPa）
 wsxqmx_got_step3 = False
 
-# #[RV50-015-AIR-PROTO] RV50 基站过气 device_type=015，帧设备字节 0x0F
-RV50AIR_77_DATA_LEN = 10
+# #[RV50-015-AIR-PROTO] RV50 基站过气 device_type=015，帧设备字节 0x0F；0x77 数据区 13 字节（含配置回读）
+RV50AIR_77_DATA_LEN = 13
 RV50AIR_SESS_IDLE = 0
 RV50AIR_SESS_WAIT_SN = 1
 RV50AIR_SESS_RUNNING = 2
@@ -282,8 +282,8 @@ rv50air_config_push_active = False
 rv50air_config_push_payload = None
 rv50air_config_push_last_ms = 0.0
 
-# #[OMINIAIR-021-PROTO] Omini 基站过气 device_type=021，帧设备字节 0x15
-OMINIAIR_77_DATA_LEN = 10
+# #[OMINIAIR-021-PROTO] Omini 基站过气 device_type=021，帧设备字节 0x15；0x77 数据区 13 字节（含配置回读）
+OMINIAIR_77_DATA_LEN = 13
 OMINIAIR_SESS_IDLE = 0
 OMINIAIR_SESS_WAIT_SN = 1
 OMINIAIR_SESS_RUNNING = 2
@@ -5395,7 +5395,7 @@ def get_res(val=0xffff, val_min=0, val_max=0):
         return "NG"
 
 
-# ---------- #[RV50-77-VER-CONFIG-EXT] 015/016 共用：基站版本 + 配置码 ----------
+# ---------- #[RV50-77-VER-CONFIG-EXT] 015/016/021 共用：基站版本 + 配置码 ----------
 def rv50_fmt_ver_3bytes(dat, start):
     return ".".join(format(int(dat[i]), "03d") for i in range(start, start + 3))
 
@@ -5485,13 +5485,17 @@ def rv50_omini_air_config_push_tick():
     ominiair_config_push_tick()
 
 
-def rv50air_ui_result_for_sent_config(finalize):
-    cfg = rv50air_get_config_str()
-    if not cfg:
-        return "monitor", ""
+def rv50air_ui_result_for_config_readback(value, finalize):
+    # #[RV50-OMINI-AIR-CONFIG-READBACK] 0x77 [10..12] 回读；未配 base_station_config_expected 时终判仍 monitor
+    disp = value or ""
     if not finalize:
-        return "monitor", cfg
-    return "pass", cfg
+        return "monitor", disp
+    ok = rv50_base_string_field_ok("base_config", value)
+    if ok is None:
+        return "monitor", disp
+    if ok is True:
+        return "pass", disp
+    return "fail", disp
 
 
 def rv50_omini_air_on_scan_pass(dev, sn_list):
@@ -5504,9 +5508,8 @@ def rv50_omini_air_on_scan_pass(dev, sn_list):
                      second="基站配置码未配置或格式错误（需 XX.XX.XX 十六进制，如 00.00.17）",
                      color=wx.RED)
         return False
-    cfg_str = rv50air_get_config_str()
     wx.CallAfter(MainFrame.main_frame.up_test_ui,
-                 name="base_station_config", result="monitor", value=cfg_str)
+                 name="base_station_config", result="monitor", value="")
     if dev == 15:
         rv50air_session_state = RV50AIR_SESS_RUNNING
         rv50air_last_step = -1
@@ -5942,6 +5945,7 @@ def rv50air_parse_77(dat):
         "mop_kpa": wsxqmx_raw_to_kpa(raw_mop),
         "duty_kpa": wsxqmx_raw_to_kpa(raw_duty),
         "base_ver": rv50_fmt_ver_3bytes(dat, 7),
+        "base_config": rv50_fmt_config_3bytes(dat, 10),
     }
 
 
@@ -5973,6 +5977,7 @@ def rv50air_all_ok(p):
         rv50air_field_in_range("mop", p.get("mop_kpa")),
         rv50air_field_in_range("duty", p.get("duty_kpa")),
         rv50air_string_field_ok("base_ver", p.get("base_ver")),
+        rv50air_string_field_ok("base_config", p.get("base_config")),
     ):
         if check is False:
             return False
@@ -6025,9 +6030,8 @@ def _rv50air_refresh_test_ui_impl(p, finalize):
     ):
         res, val = rv50air_ui_result_for_string(field, value, finalize)
         MainFrame.main_frame.up_test_ui(name=ui_name, result=res, value=val)
-    if rv50air_get_config_str():
-        res, val = rv50air_ui_result_for_sent_config(finalize)
-        MainFrame.main_frame.up_test_ui(name="base_station_config", result=res, value=val)
+    res, val = rv50air_ui_result_for_config_readback(p.get("base_config"), finalize)
+    MainFrame.main_frame.up_test_ui(name="base_station_config", result=res, value=val)
 
 
 def rv50air_refresh_test_ui_callafter(p, finalize=False):
@@ -6044,12 +6048,7 @@ def rv50air_add_reports(p):
         mes_run.add_report(name="污水通路气压", result="NG", value="无数据")
         mes_run.add_report(name="拖布通路气压", result="NG", value="无数据")
         mes_run.add_report(name="基站版本", result="NG", value="无数据")
-        cfg = rv50air_get_config_str()
-        if cfg:
-            mes_run.add_report(
-                name="基站配置码", result="OK", value=cfg,
-                val_min=cfg, val_max=cfg,
-            )
+        rv50_base_add_string_report("基站配置码", "base_config", None)
         return
     mes_run.add_report(
         name="清水通路气压",
@@ -6073,12 +6072,7 @@ def rv50air_add_reports(p):
         val_max=load_cfg.rv50air_mop_kpa_max,
     )
     rv50air_add_string_report("基站版本", "base_ver", p.get("base_ver"))
-    cfg = rv50air_get_config_str()
-    if cfg:
-        mes_run.add_report(
-            name="基站配置码", result="OK", value=cfg,
-            val_min=cfg, val_max=cfg,
-        )
+    rv50_base_add_string_report("基站配置码", "base_config", p.get("base_config") if p else None)
 
 
 def rv50air_finalize_88(dev, dat):
@@ -6233,9 +6227,12 @@ def ominiair_field_enabled(field):
 def ominiair_build_item_result():
     items = []
     for entry in OMINIAIR_FIELD_REGISTRY:
-        if ominiair_field_enabled(entry["field"]):
-            ui = entry["ui"]
-            items.append({ui: [OMINIAIR_UI_LABELS[ui], "", "white"]})
+        field = entry["field"]
+        if field == "base_config":
+            # #[OMINIAIR-CONFIG-READBACK] 始终显示 0x77 回读；是否参与终判见 ominiair_field_enabled
+            items.append({entry["ui"]: [OMINIAIR_UI_LABELS[entry["ui"]], "", "white"]})
+        elif ominiair_field_enabled(field):
+            items.append({entry["ui"]: [OMINIAIR_UI_LABELS[entry["ui"]], "", "white"]})
     return items
 
 
@@ -6262,6 +6259,7 @@ def ominiair_parse_77(dat):
         "mop_kpa": wsxqmx_raw_to_kpa(raw_mop),
         "duty_kpa": wsxqmx_raw_to_kpa(raw_duty),
         "base_ver": rv50_fmt_ver_3bytes(dat, 7),
+        "base_config": rv50_fmt_config_3bytes(dat, 10),
     }
 
 
@@ -6293,7 +6291,7 @@ def ominiair_field_ok(p, field):
             lo, hi = hi, lo
         return lo <= kpa <= hi
     if kind == "string" and field == "base_config":
-        return True
+        return ominiair_string_field_ok("base_config", p.get("base_config"))
     if kind == "version":
         return ver_triplet_matches(p.get("base_ver"), load_cfg.mcu_ver)
     return None
@@ -6376,17 +6374,19 @@ def _ominiair_refresh_test_ui_impl(p, finalize):
     }
     for entry in OMINIAIR_FIELD_REGISTRY:
         field = entry["field"]
+        if field == "base_config":
+            continue
         if not ominiair_field_enabled(field):
             continue
         if entry["kind"] == "range_kpa":
             res, val = ominiair_ui_result_for_kpa(field, _kpa_map.get(field), finalize)
         elif field == "base_ver":
             res, val = ominiair_ui_result_for_string("base_ver", p.get("base_ver"), finalize)
-        elif field == "base_config":
-            res, val = rv50air_ui_result_for_sent_config(finalize)
         else:
             continue
         MainFrame.main_frame.up_test_ui(name=entry["ui"], result=res, value=val)
+    res, val = rv50air_ui_result_for_config_readback(p.get("base_config"), finalize)
+    MainFrame.main_frame.up_test_ui(name="base_station_config", result=res, value=val)
 
 
 def ominiair_refresh_test_ui_callafter(p, finalize=False):
@@ -6413,12 +6413,8 @@ def ominiair_add_reports(p):
         for entry in OMINIAIR_FIELD_REGISTRY:
             if not ominiair_field_enabled(entry["field"]):
                 continue
-            if entry["field"] == "base_config":
-                cfg = rv50air_get_config_str()
-                mes_run.add_report(
-                    name=entry["mes"], result="OK", value=cfg,
-                    val_min=cfg, val_max=cfg,
-                )
+            elif entry["field"] == "base_config":
+                ominiair_add_string_report(entry["mes"], "base_config", None)
             else:
                 mes_run.add_report(name=entry["mes"], result="NG", value="无数据")
         return
@@ -6440,11 +6436,7 @@ def ominiair_add_reports(p):
         elif field == "base_ver":
             ominiair_add_string_report(entry["mes"], "base_ver", p.get("base_ver"))
         elif field == "base_config":
-            cfg = rv50air_get_config_str()
-            mes_run.add_report(
-                name=entry["mes"], result="OK", value=cfg,
-                val_min=cfg, val_max=cfg,
-            )
+            ominiair_add_string_report(entry["mes"], "base_config", p.get("base_config"))
 
 
 def ominiair_finalize_88(dev, dat):
