@@ -251,6 +251,7 @@ rv30_session_state = RV30_SESS_IDLE
 rv30_last_step = -1
 rv30_max_step = 0  # [RV30-步骤4终判-WBH] 本轮实时数据到达过的最大治具步骤
 rv30_89_mes_done = False
+rv30_finalize_done = False  # [RV30-0x88-RETRY] 本轮 0x88 已处理，重复结束帧直接忽略
 rv30_realtime_ng = False
 rv30_last_p = None  # [up_test_ui_WBH] 最近一帧 0x77 解析结果，供结束帧刷新测试格
 rv30_last_dust_notify = -1  # [RV30-尘袋步骤3-WBH] 防抖：上次已提示的 dust 状态
@@ -326,6 +327,7 @@ rv50_max_step = 0
 rv50_last_p = None
 rv50_last_step4_notify_key = ""
 rv50_89_mes_done = False
+rv50_finalize_done = False  # [RV50-0x88-RETRY] 本轮 0x88 已处理，重复结束帧直接忽略
 rv50_realtime_ng = False
 ir_code_near = 0
 rv50_base_level_up_adc = 0
@@ -371,6 +373,7 @@ omini_max_step = 0
 omini_last_p = None
 omini_last_step4_notify_key = ""
 omini_89_mes_done = False
+omini_finalize_done = False  # [OMINI-0x88-RETRY] 本轮 0x88 已处理，重复结束帧直接忽略
 omini_realtime_ng = False
 
 OMINI_STEP4_MODULE_FIELDS = ("clear_tank", "dust", "clean_base", "duty_tank")
@@ -709,6 +712,7 @@ def barcode_check_process():
     global rv30_last_step
     global rv30_max_step
     global rv30_89_mes_done
+    global rv30_finalize_done
     global rv30_realtime_ng
     global wsxqmx_session_state
     global wsxqmx_last_step
@@ -730,11 +734,13 @@ def barcode_check_process():
     global rv50_session_state
     global rv50_last_step
     global rv50_max_step
+    global rv50_finalize_done
     global omini_session_state
     global omini_last_step
     global omini_max_step
     global omini_last_step4_notify_key
     global omini_89_mes_done
+    global omini_finalize_done
     global omini_realtime_ng
     global rv50pcba_session_state
     global rv50pcba_last_step
@@ -767,6 +773,9 @@ def barcode_check_process():
                 rv50_session_state = RV50_SESS_RUNNING
                 rv50_last_step = -1
                 rv50_max_step = 0
+                rv50_finalize_done = False
+                rv50_89_mes_done = False
+                rv50_realtime_ng = False
             else:
                 ser_send_data(dev=17, cmd=0x58, data=str_list)
                 ser_send_data(dev=17, cmd=0x89, data=[0x03])
@@ -794,6 +803,7 @@ def barcode_check_process():
                 omini_last_step = -1
                 omini_max_step = 0
                 omini_last_step4_notify_key = ""
+                omini_finalize_done = False
                 omini_89_mes_done = False
                 omini_realtime_ng = False
             else:
@@ -848,6 +858,7 @@ def barcode_check_process():
                 rv30_session_state = RV30_SESS_RUNNING
                 rv30_last_step = -1
                 rv30_max_step = 0
+                rv30_finalize_done = False
                 rv30_89_mes_done = False
                 rv30_realtime_ng = False
             else:
@@ -1551,11 +1562,12 @@ def ser_send_data(dev, cmd, data):
 def rv30_proto_reset_to_idle():
     # #[RV30-PROTO] 一轮测试完全结束后恢复空闲，便于下一轮 0x66
     global rv30_session_state, rv30_last_step, rv30_max_step, rv30_89_mes_done
-    global rv30_realtime_ng, rv30_last_p, rv30_last_dust_notify
+    global rv30_finalize_done, rv30_realtime_ng, rv30_last_p, rv30_last_dust_notify
     rv30_session_state = RV30_SESS_IDLE
     rv30_last_step = -1
     rv30_max_step = 0
     rv30_89_mes_done = False
+    rv30_finalize_done = False
     rv30_realtime_ng = False
     rv30_last_p = None  # [up_test_ui_WBH]
     rv30_last_dust_notify = -1  # [RV30-尘袋步骤3-WBH]
@@ -2067,7 +2079,11 @@ def rv30_proto_add_fx_reports():
 
 def rv30_proto_finalize_88(dev, dat):
     # #[RV30-PROTO] 收到 0x88：dat[0]=03 治具正常结束（再综合判定）；04 治具与基站通讯失败
-    global test_end_time, rv30_session_state, rv30_89_mes_done
+    global test_end_time, rv30_session_state, rv30_89_mes_done, rv30_finalize_done
+    if rv30_finalize_done:
+        print("[RV30-050] 重复 0x88，忽略")
+        return
+
     test_end_time = datetime.now()
 
     res_byte = dat[0] if len(dat) else 0xFF
@@ -2079,15 +2095,14 @@ def rv30_proto_finalize_88(dev, dat):
         wx.CallAfter(MainFrame.main_frame.up_notification_ui,
                      second="治具与基站通讯失败", color=wx.RED)
         rv30_session_state = RV30_SESS_FINISHED
+        rv30_finalize_done = True
         clear_sn_save_list()
-        rv30_proto_reset_to_idle()
         return
 
     if rv30_89_mes_done:
-        wx.CallAfter(MainFrame.main_frame.up_notification_ui, second="测试失败", color=wx.RED)
         rv30_session_state = RV30_SESS_FINISHED
+        rv30_finalize_done = True
         clear_sn_save_list()
-        rv30_proto_reset_to_idle()
         return
 
     normal_end = res_byte == 0x03
@@ -2109,7 +2124,7 @@ def rv30_proto_finalize_88(dev, dat):
         res_display_str = "测试结束(综合判定 NG)"
         text_color = wx.RED
         mes_ret = mes_run.send_report(test_start_time, test_end_time, check_sn_str, "NG")
-
+    rv30_89_mes_done = True
 
     # [up_test_ui_WBH] 结束帧用最后一帧 0x77 刷新测试格；综合 NG 时未配置阈值的项也标 fail
     # [RV30-测试项分步报错-WBH] 结束刷新同样按最后一帧 step 分步；未到步骤保持未测试
@@ -2155,22 +2170,21 @@ def rv30_proto_finalize_88(dev, dat):
     if mes_ret:
         wx.CallAfter(MainFrame.main_frame.up_notification_ui, second=res_display_str, color=text_color)
     rv30_session_state = RV30_SESS_FINISHED
-
-
+    rv30_finalize_done = True
     clear_sn_save_list()
-    rv30_proto_reset_to_idle()
 
 
 # #[RV50-017-PROTO] RV50 基站全功能 device_type=017（见 doc/ce_mes_iteration/RV50_017_AI_PROMPT_GUIDE.md）
 def rv50_proto_reset_to_idle():
     global rv50_session_state, rv50_last_step, rv50_max_step, rv50_last_p, rv50_last_step4_notify_key
-    global rv50_89_mes_done, rv50_realtime_ng
+    global rv50_89_mes_done, rv50_finalize_done, rv50_realtime_ng
     rv50_session_state = RV50_SESS_IDLE
     rv50_last_step = -1
     rv50_max_step = 0
     rv50_last_p = None
     rv50_last_step4_notify_key = ""
     rv50_89_mes_done = False
+    rv50_finalize_done = False
     rv50_realtime_ng = False
 
 
@@ -2679,7 +2693,11 @@ def rv50_proto_add_reports():
 
 
 def rv50_proto_finalize_88(dev, dat):
-    global test_end_time, rv50_session_state, rv50_last_p, rv50_89_mes_done
+    global test_end_time, rv50_session_state, rv50_last_p, rv50_89_mes_done, rv50_finalize_done
+    if rv50_finalize_done:
+        print("[RV50-017] 重复 0x88，忽略")
+        return
+
     test_end_time = datetime.now()
     res_byte = dat[0] if len(dat) else 0xFF
     if res_byte == 0x04:
@@ -2694,13 +2712,12 @@ def rv50_proto_finalize_88(dev, dat):
                          second="治具与基站通讯失败", color=wx.RED)
         clear_sn_save_list()
         rv50_session_state = RV50_SESS_FINISHED
-        rv50_proto_reset_to_idle()
+        rv50_finalize_done = True
         return
     if rv50_89_mes_done:
-        wx.CallAfter(MainFrame.main_frame.up_notification_ui, second="测试失败", color=wx.RED)
         rv50_session_state = RV50_SESS_FINISHED
+        rv50_finalize_done = True
         clear_sn_save_list()
-        rv50_proto_reset_to_idle()
         return
     if res_byte != 0x03:
         mes_run.add_report(name="结束码", result="NG", value=hex(res_byte))
@@ -2711,7 +2728,7 @@ def rv50_proto_finalize_88(dev, dat):
                          second="测试结束 NG（结束码 {}）".format(hex(res_byte)), color=wx.RED)
         clear_sn_save_list()
         rv50_session_state = RV50_SESS_FINISHED
-        rv50_proto_reset_to_idle()
+        rv50_finalize_done = True
         return
     p = rv50_last_p
     mes_ok = (
@@ -2748,14 +2765,14 @@ def rv50_proto_finalize_88(dev, dat):
     if mes_ret:
         wx.CallAfter(MainFrame.main_frame.up_notification_ui, second=res_display_str, color=text_color)
     rv50_session_state = RV50_SESS_FINISHED
+    rv50_finalize_done = True
     clear_sn_save_list()
-    rv50_proto_reset_to_idle()
 
 
 def RV50_finished_product_mode(dev, cmd, dat):
     global test_start_time, check_sn_enable, ver_res, dev_ver
     global rv50_session_state, rv50_last_step, rv50_max_step, rv50_last_p, rv50_last_step4_notify_key
-    global rv50_89_mes_done, rv50_realtime_ng
+    global rv50_89_mes_done, rv50_finalize_done, rv50_realtime_ng
     if len(dat) <= 0:
         print("[RV50-017] len=0 无有效数据")
         return
@@ -2770,6 +2787,7 @@ def RV50_finished_product_mode(dev, cmd, dat):
             rv50_last_step4_notify_key = ""
             rv50_last_p = None
             rv50_89_mes_done = False
+            rv50_finalize_done = False
             rv50_realtime_ng = False
             rv50_session_state = RV50_SESS_WAIT_SN
             print("[RV50-017] 请扫码")
@@ -2939,13 +2957,14 @@ def omini_build_item_result():
 
 def omini_proto_reset_to_idle():
     global omini_session_state, omini_last_step, omini_max_step, omini_last_p
-    global omini_last_step4_notify_key, omini_89_mes_done, omini_realtime_ng
+    global omini_last_step4_notify_key, omini_89_mes_done, omini_finalize_done, omini_realtime_ng
     omini_session_state = OMINI_SESS_IDLE
     omini_last_step = -1
     omini_max_step = 0
     omini_last_p = None
     omini_last_step4_notify_key = ""
     omini_89_mes_done = False
+    omini_finalize_done = False
     omini_realtime_ng = False
 
 
@@ -3401,7 +3420,11 @@ def omini_proto_add_reports():
 
 
 def omini_proto_finalize_88(dev, dat):
-    global test_end_time, omini_session_state, omini_last_p, omini_89_mes_done
+    global test_end_time, omini_session_state, omini_last_p, omini_89_mes_done, omini_finalize_done
+    if omini_finalize_done:
+        print("[OMINI-020] 重复 0x88，忽略")
+        return
+
     test_end_time = datetime.now()
     res_byte = dat[0] if len(dat) else 0xFF
     if res_byte == 0x04:
@@ -3416,13 +3439,12 @@ def omini_proto_finalize_88(dev, dat):
                          second="治具与基站通讯失败", color=wx.RED)
         clear_sn_save_list()
         omini_session_state = OMINI_SESS_FINISHED
-        omini_proto_reset_to_idle()
+        omini_finalize_done = True
         return
     if omini_89_mes_done:
-        wx.CallAfter(MainFrame.main_frame.up_notification_ui, second="测试失败", color=wx.RED)
         omini_session_state = OMINI_SESS_FINISHED
+        omini_finalize_done = True
         clear_sn_save_list()
-        omini_proto_reset_to_idle()
         return
     if res_byte != 0x03:
         mes_run.add_report(name="结束码", result="NG", value=hex(res_byte))
@@ -3433,7 +3455,7 @@ def omini_proto_finalize_88(dev, dat):
                          second="测试结束 NG（结束码 {}）".format(hex(res_byte)), color=wx.RED)
         clear_sn_save_list()
         omini_session_state = OMINI_SESS_FINISHED
-        omini_proto_reset_to_idle()
+        omini_finalize_done = True
         return
     p = omini_last_p
     mes_ok = (
@@ -3469,14 +3491,14 @@ def omini_proto_finalize_88(dev, dat):
     if mes_ret:
         wx.CallAfter(MainFrame.main_frame.up_notification_ui, second=res_display_str, color=text_color)
     omini_session_state = OMINI_SESS_FINISHED
+    omini_finalize_done = True
     clear_sn_save_list()
-    omini_proto_reset_to_idle()
 
 
 def Omini_finished_product_mode(dev, cmd, dat):
     global test_start_time, check_sn_enable, ver_res, dev_ver
     global omini_session_state, omini_last_step, omini_max_step, omini_last_p
-    global omini_last_step4_notify_key, omini_89_mes_done, omini_realtime_ng
+    global omini_last_step4_notify_key, omini_89_mes_done, omini_finalize_done, omini_realtime_ng
     if len(dat) <= 0:
         print("[OMINI-020] len=0 无有效数据")
         return
@@ -3491,6 +3513,7 @@ def Omini_finished_product_mode(dev, cmd, dat):
             omini_last_step4_notify_key = ""
             omini_last_p = None
             omini_89_mes_done = False
+            omini_finalize_done = False
             omini_realtime_ng = False
             omini_session_state = OMINI_SESS_WAIT_SN
             print("[OMINI-020] 请扫码")
@@ -6941,6 +6964,7 @@ def RV30_finished_product_mode(dev, cmd, dat):
     global rv30_last_step
     global rv30_max_step
     global rv30_89_mes_done
+    global rv30_finalize_done
     global rv30_realtime_ng
     global rv30_last_p  # [up_test_ui_WBH]
     global rv30_last_dust_notify  # [RV30-尘袋步骤3-WBH]
@@ -6960,7 +6984,9 @@ def RV30_finished_product_mode(dev, cmd, dat):
             rv30_last_step = -1
             rv30_max_step = 0
             rv30_89_mes_done = False
+            rv30_finalize_done = False
             rv30_realtime_ng = False
+            rv30_last_p = None
             rv30_last_dust_notify = -1  # [RV30-尘袋步骤3-WBH]
             rv30_session_state = RV30_SESS_WAIT_SN
 
