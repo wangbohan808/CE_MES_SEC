@@ -1013,6 +1013,35 @@ def get_config_path():
         base_dir = os.path.abspath(".")
     return os.path.join(base_dir, "config.yaml")
 
+
+def normalize_ver_string(s):
+    """将 N.N.N / NNN.NNN.NNN 规范为三位段格式；非法则返回空字符串。"""
+    raw = (s or "").strip()
+    if not raw:
+        return ""
+    parts = raw.split(".")
+    if len(parts) != 3:
+        return ""
+    try:
+        vals = [int(p) for p in parts]
+    except ValueError:
+        return ""
+    if any(v < 0 or v > 255 for v in vals):
+        return ""
+    return ".".join(format(v, "03d") for v in vals)
+
+
+def ver_triplet_matches(actual, expect):
+    """三段版本/配置码比对；期望值为空时返回 None（跳过该项）。"""
+    e = normalize_ver_string(expect)
+    if not e:
+        return None
+    a = normalize_ver_string(actual)
+    if not a:
+        return False
+    return a == e
+
+
 # 加载配置文件
 def load_config():
     # [WEIGH-106] 读取 weight_min_kg / weight_max_kg / weight_read_*（见文件内 YAML 赋值处）
@@ -1030,7 +1059,9 @@ def load_config():
     print(type(config), config)
     load_cfg.com = config.get('user_com', "")  # config['user_com']
     load_cfg.dev = config['device_type']
-    load_cfg.mcu_ver = config.get('mcu_version', "")  # config['mcu_version']
+    _raw_mcu_ver = str(config.get('mcu_version', "")).strip()
+    _norm_mcu_ver = normalize_ver_string(_raw_mcu_ver)
+    load_cfg.mcu_ver = _norm_mcu_ver if _norm_mcu_ver else _raw_mcu_ver
     load_cfg.test_tool = config.get('test_tool', "治具未编码")  # 测试工具编码，暂不使用（海能mes）
     load_cfg.mes = config.get('use_mes', "3")  # 使用安克mes
     load_cfg.parts_sn_head = config.get('parts_sn_head', "")  # config['parts_sn_head']
@@ -1111,9 +1142,11 @@ def load_config():
     load_cfg.rv50air_duty_kpa_max = float(
         config.get("rv50air_duty_kpa_max", getattr(load_cfg, "rv50air_duty_kpa_max", -18.0)))
 
-    load_cfg.base_station_config_expected = str(
+    _raw_base_cfg = str(
         config.get("base_station_config_expected",
                    getattr(load_cfg, "base_station_config_expected", ""))).strip()
+    _norm_base_cfg = normalize_ver_string(_raw_base_cfg)
+    load_cfg.base_station_config_expected = _norm_base_cfg if _norm_base_cfg else _raw_base_cfg
 
     # #[OMINIAIR-021-PROTO] 三路气压阈值（kPa）；缺省 0 表示不参与比较
     load_cfg.ominiair_clear_kpa_min = float(
@@ -2420,18 +2453,9 @@ def rv50_field_ok(p, field):
     if p is None:
         return None
     if field == "dev_ver":
-        expect_ver = (load_cfg.mcu_ver or "").strip()
-        if not expect_ver:
-            return None
-        return p.get("dev_ver") == expect_ver
+        return ver_triplet_matches(p.get("dev_ver"), load_cfg.mcu_ver)
     if field == "base_config":
-        expect = (load_cfg.base_station_config_expected or "").strip()
-        if not expect:
-            return None
-        actual = p.get("base_config")
-        if not actual:
-            return False
-        return actual == expect
+        return ver_triplet_matches(p.get("base_config"), load_cfg.base_station_config_expected)
     if field == "charge":
         ch = (
             load_cfg.rv50_charge_Hmin, load_cfg.rv50_charge_Lmin,
@@ -2701,7 +2725,7 @@ def rv50_proto_add_reports():
     mes_run.add_report(name="清洁泵电流", result="", value=str(cleaner_pump_current))
     mes_run.add_report(name="浊度数据", result="", value=str(turbidity_data))
     mes_run.add_report(name="热风差值", result="", value=str(rv50_hot_diff_adc))
-    if rv50_last_p is not None and (load_cfg.base_station_config_expected or "").strip():
+    if rv50_last_p is not None and load_cfg.base_station_config_expected:
         cfg_ok = rv50_field_ok(rv50_last_p, "base_config")
         mes_run.add_report(
             name="基站配置码",
@@ -3085,17 +3109,10 @@ def omini_field_ok(p, field):
     if kind in ("monitor",):
         return None
     if kind == "version":
-        expect = (load_cfg.mcu_ver or "").strip()
-        actual = p.get("dev_ver")
-        if not actual:
-            return False
-        return actual == expect
+        return ver_triplet_matches(p.get("dev_ver"), load_cfg.mcu_ver)
     if kind == "string":
-        expect = str(getattr(load_cfg, entry.get("expect_attr", ""), "")).strip()
-        actual = p.get("base_config")
-        if not actual:
-            return False
-        return actual == expect
+        return ver_triplet_matches(
+            p.get("base_config"), load_cfg.base_station_config_expected)
     if kind == "expected":
         if entry.get("step4_module"):
             return None
@@ -5349,29 +5366,17 @@ def rv50_fmt_ver_3bytes(dat, start):
 
 # #[RV50-OMINI-AIR-CONFIG-PUSH] 015/021：config.yaml 配置码经 0x57 下发治具
 def rv50_parse_ver_string_to_bytes(ver_str):
-    s = (ver_str or "").strip()
-    if not s:
+    norm = normalize_ver_string(ver_str)
+    if not norm:
+        s = (ver_str or "").strip()
+        if s:
+            print("[RV50-OMINI-AIR-CONFIG-PUSH] 配置码格式错误，需 NNN.NNN.NNN:", s)
         return None
-    parts = s.split(".")
-    if len(parts) != 3:
-        print("[RV50-OMINI-AIR-CONFIG-PUSH] 配置码格式错误，需 NNN.NNN.NNN:", s)
-        return None
-    out = []
-    for part in parts:
-        try:
-            v = int(part)
-        except ValueError:
-            print("[RV50-OMINI-AIR-CONFIG-PUSH] 配置码段非整数:", s)
-            return None
-        if v < 0 or v > 255:
-            print("[RV50-OMINI-AIR-CONFIG-PUSH] 配置码段超出 0~255:", s)
-            return None
-        out.append(v)
-    return out
+    return [int(p) for p in norm.split(".")]
 
 
 def rv50air_get_config_str():
-    return (load_cfg.base_station_config_expected or "").strip()
+    return load_cfg.base_station_config_expected or ""
 
 
 def rv50air_build_57_payload(sn_list):
@@ -5479,16 +5484,10 @@ def rv50_omini_air_on_scan_pass(dev, sn_list):
 
 def rv50_base_string_field_ok(field, actual):
     if field == "base_ver":
-        expect = (load_cfg.mcu_ver or "").strip()
-    elif field == "base_config":
-        expect = (load_cfg.base_station_config_expected or "").strip()
-    else:
-        return False
-    if not expect:
-        return None
-    if not actual:
-        return False
-    return actual == expect
+        return ver_triplet_matches(actual, load_cfg.mcu_ver)
+    if field == "base_config":
+        return ver_triplet_matches(actual, load_cfg.base_station_config_expected)
+    return False
 
 
 def rv50_base_ui_result_for_string(field, value, finalize):
@@ -5504,9 +5503,8 @@ def rv50_base_ui_result_for_string(field, value, finalize):
 def rv50_base_add_string_report(name, field, value):
     ok = rv50_base_string_field_ok(field, value)
     if ok is None:
-        result = "OK"
-    else:
-        result = "OK" if ok else "NG"
+        return
+    result = "OK" if ok else "NG"
     if field == "base_ver":
         expect = load_cfg.mcu_ver
     else:
@@ -6257,17 +6255,7 @@ def ominiair_field_ok(p, field):
     if kind == "string" and field == "base_config":
         return True
     if kind == "version":
-        expect = (load_cfg.mcu_ver or "").strip()
-        actual = p.get("base_ver")
-        if not actual:
-            return False
-        return actual == expect
-    if kind == "string":
-        expect = str(getattr(load_cfg, entry.get("expect_attr", ""), "")).strip()
-        actual = p.get("base_config")
-        if not actual:
-            return False
-        return actual == expect
+        return ver_triplet_matches(p.get("base_ver"), load_cfg.mcu_ver)
     return None
 
 
@@ -6322,16 +6310,10 @@ def ominiair_ui_result_for_kpa(field, kpa, finalize):
 
 def ominiair_string_field_ok(field, actual):
     if field == "base_ver":
-        expect = (load_cfg.mcu_ver or "").strip()
-    elif field == "base_config":
-        expect = (load_cfg.base_station_config_expected or "").strip()
-    else:
-        return None
-    if not expect:
-        return None
-    if not actual:
-        return False
-    return actual == expect
+        return ver_triplet_matches(actual, load_cfg.mcu_ver)
+    if field == "base_config":
+        return ver_triplet_matches(actual, load_cfg.base_station_config_expected)
+    return None
 
 
 def ominiair_ui_result_for_string(field, value, finalize):
@@ -6654,17 +6636,10 @@ def ominiwater_field_ok(p, field):
         v = int(val)
         return lo <= v <= hi
     if kind == "version":
-        expect = (load_cfg.mcu_ver or "").strip()
-        actual = p.get("base_ver")
-        if not actual:
-            return False
-        return actual == expect
+        return ver_triplet_matches(p.get("base_ver"), load_cfg.mcu_ver)
     if kind == "string":
-        expect = str(getattr(load_cfg, entry.get("expect_attr", ""), "")).strip()
-        actual = p.get("base_config")
-        if not actual:
-            return False
-        return actual == expect
+        return ver_triplet_matches(
+            p.get("base_config"), load_cfg.base_station_config_expected)
     return None
 
 
@@ -6733,16 +6708,10 @@ def ominiwater_ui_result_for_field(field, p, finalize):
 
 def ominiwater_string_field_ok(field, actual):
     if field == "base_ver":
-        expect = (load_cfg.mcu_ver or "").strip()
-    elif field == "base_config":
-        expect = (load_cfg.base_station_config_expected or "").strip()
-    else:
-        return None
-    if not expect:
-        return None
-    if not actual:
-        return False
-    return actual == expect
+        return ver_triplet_matches(actual, load_cfg.mcu_ver)
+    if field == "base_config":
+        return ver_triplet_matches(actual, load_cfg.base_station_config_expected)
+    return None
 
 
 def ominiwater_ui_result_for_string(field, value, finalize):
