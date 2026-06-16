@@ -124,11 +124,11 @@ class LoadCfg:
     ominiwater_base_hot_temp_min: int = 0
     ominiwater_base_hot_temp_max: int = 0
     # #[RV50-016-WATER-PROTO] device_type=016 基站过水（帧 dev=0x10）
-    rv50water_clear_volume_expected: int = 3
-    rv50water_duty_volume_expected: int = 3
-    rv50water_left_mop_volume_expected: int = 3
-    rv50water_right_mop_volume_expected: int = 3
-    rv50water_cleaner_level_expected: int = 3
+    rv50water_clear_volume_expected: int = -1
+    rv50water_duty_volume_expected: int = -1
+    rv50water_left_mop_volume_expected: int = -1
+    rv50water_right_mop_volume_expected: int = -1
+    rv50water_cleaner_level_expected: int = -1
     rv50water_left_mop_temp_min: int = 800
     rv50water_left_mop_temp_max: int = 1800
     rv50water_right_mop_temp_min: int = 800
@@ -149,6 +149,7 @@ class LoadCfg:
     rv50_ir_n: int = 0
     rv50_clear_tank_expected: int = 0
     rv50_duty_tank_expected: int = 0
+    rv50_dust_expected: int = 0
     rv50_clean_base_expected: int = 0
     rv50_clean_pump_min: int = 0
     rv50_clean_pump_max: int = 0
@@ -364,14 +365,72 @@ RV50_STEP4_SUBSTEPS = (
 RV50_STEP4_ORDER_HINT = "步骤四：请严格按顺序操作（清水箱→尘袋→清洁底座→污水箱→观察灯显）"
 RV50_STEP4_LED_HINT = "请工人观察LED灯显示，正常按开始键，异常按结束键"
 
-RV50_REALTIME_FIELDS = (
-    "dev_ver", "base_config", "charge",
-    "ir_l", "ir_r", "ir_n",
-    "clear_tank", "duty_tank", "clean_base",
-    "suction_10pa",
-    "clean_pump", "vacuum_pump", "base_level_up", "base_level_down", "em_valve",
-    "wash_pump", "turbidity", "hot_diff",
-)
+# #[RV50-017-PROTO] 动态测试项注册表（对标 OMINI_FIELD_REGISTRY）
+RV50_UI_LABELS = {
+    "mcu_ver": "MCU版本：",
+    "base_station_config": "基站配置码：",
+    "charge_value": "充电电流：",
+    "rv50_hot_start": "热风开始：",
+    "ir_code_left": "左回充码：",
+    "ir_code_right": "右回充码：",
+    "ir_code_near": "近卫回充码：",
+    "clear_tank_install": "清水箱在位：",
+    "duty_tank_install": "污水箱在位：",
+    "dust_bug_install": "尘袋：",
+    "clean_base_install": "清洁底座在位：",
+    "dust_collection_suction": "集尘吸力(kPa)：",
+    "clean_water_pump_current": "清水泵电流：",
+    "duty_water_pump_current": "真空泵电流：",
+    "rv50_base_level_up": "底座液位(抬起)：",
+    "rv50_base_level_down": "底座液位(按下)：",
+    "electromagnetic_three_way_current": "电磁三通电流：",
+    "rv50_hot_end": "热风结束：",
+    "cleaner_pump_current": "清洁泵电流：",
+    "turbidity_data": "浊度：",
+    "rv50_hot_diff": "热风差值：",
+}
+
+RV50_FIELD_REGISTRY = [
+    {"field": "dev_ver", "kind": "version", "ui": "mcu_ver", "mes": "MCU版本", "active_from_step": 4},
+    {"field": "base_config", "kind": "string", "ui": "base_station_config", "mes": "基站配置码",
+     "expect_attr": "base_station_config_expected", "active_from_step": 4},
+    {"field": "charge", "kind": "range_charge", "ui": "charge_value", "mes": "充电电流",
+     "active_from_step": 1},
+    {"field": "ir_l", "kind": "expected", "ui": "ir_code_left", "mes": "左回充码",
+     "expect_attr": "rv50_ir_l", "active_from_step": 3},
+    {"field": "ir_r", "kind": "expected", "ui": "ir_code_right", "mes": "右回充码",
+     "expect_attr": "rv50_ir_r", "active_from_step": 3},
+    {"field": "ir_n", "kind": "expected", "ui": "ir_code_near", "mes": "近卫回充码",
+     "expect_attr": "rv50_ir_n", "active_from_step": 3},
+    {"field": "clear_tank", "kind": "expected", "ui": "clear_tank_install", "mes": "清水箱在位",
+     "expect_attr": "rv50_clear_tank_expected", "active_from_step": 4, "step4_module": True},
+    {"field": "duty_tank", "kind": "expected", "ui": "duty_tank_install", "mes": "污水箱在位",
+     "expect_attr": "rv50_duty_tank_expected", "active_from_step": 4, "step4_module": True},
+    {"field": "dust", "kind": "expected", "ui": "dust_bug_install", "mes": "尘袋",
+     "expect_attr": "rv50_dust_expected", "active_from_step": 4, "step4_module": True},
+    {"field": "clean_base", "kind": "expected", "ui": "clean_base_install", "mes": "清洁底座在位",
+     "expect_attr": "rv50_clean_base_expected", "active_from_step": 4, "step4_module": True},
+    {"field": "suction_10pa", "kind": "range_suction", "ui": "dust_collection_suction", "mes": "集尘吸力kPa",
+     "active_from_step": 5},
+    {"field": "clean_pump", "kind": "range", "ui": "clean_water_pump_current", "mes": "清水泵电流",
+     "min_attr": "rv50_clean_pump_min", "max_attr": "rv50_clean_pump_max", "active_from_step": 6},
+    {"field": "vacuum_pump", "kind": "range", "ui": "duty_water_pump_current", "mes": "真空泵电流",
+     "min_attr": "rv50_vacuum_pump_min", "max_attr": "rv50_vacuum_pump_max", "active_from_step": 6},
+    {"field": "base_level_up", "kind": "range", "ui": "rv50_base_level_up", "mes": "底座液位(抬起)",
+     "min_attr": "rv50_base_level_up_min", "max_attr": "rv50_base_level_up_max", "active_from_step": 6},
+    {"field": "base_level_down", "kind": "range", "ui": "rv50_base_level_down", "mes": "底座液位(按下)",
+     "min_attr": "rv50_base_level_down_min", "max_attr": "rv50_base_level_down_max", "active_from_step": 6},
+    {"field": "em_valve", "kind": "range", "ui": "electromagnetic_three_way_current", "mes": "电磁三通电流",
+     "min_attr": "rv50_em_valve_min", "max_attr": "rv50_em_valve_max", "active_from_step": 6},
+    {"field": "wash_pump", "kind": "range", "ui": "cleaner_pump_current", "mes": "清洁泵电流",
+     "min_attr": "rv50_wash_pump_min", "max_attr": "rv50_wash_pump_max", "active_from_step": 7},
+    {"field": "turbidity", "kind": "range", "ui": "turbidity_data", "mes": "浊度数据",
+     "min_attr": "rv50_turbidity_min", "max_attr": "rv50_turbidity_max", "active_from_step": 7},
+    {"field": "hot_diff", "kind": "range", "ui": "rv50_hot_diff", "mes": "热风差值",
+     "min_attr": "rv50_hot_diff_min", "max_attr": "rv50_hot_diff_max", "active_from_step": 7},
+    {"field": "hot_start", "kind": "monitor", "ui": "rv50_hot_start", "mes": "热风开始", "active_from_step": 7},
+    {"field": "hot_end", "kind": "monitor", "ui": "rv50_hot_end", "mes": "热风结束", "active_from_step": 7},
+]
 
 # #[OMINI-020-PROTO] Omini 基站全功能 device_type=020，0x77 数据区 38 字节（帧 dev=0x14）
 OMINI_77_DATA_LEN = 38
@@ -1245,21 +1304,22 @@ def load_config():
         config.get("ominiwater_base_hot_temp_max",
                    getattr(load_cfg, "ominiwater_base_hot_temp_max", 0)))
 
-    # #[RV50-016-WATER-PROTO] 过水判据（水量/液位为 u16 或单字节期望值；温度为 ADC 含端点）
-    _rv50water_legacy_vol = config.get("rv50water_volume_expected")
-    _rv50water_vol_fb = (int(_rv50water_legacy_vol) if _rv50water_legacy_vol is not None
-                         else 3)
+    # #[RV50-016-WATER-PROTO] 过水判据；-1 表示不参与比较
     load_cfg.rv50water_clear_volume_expected = int(
-        config.get("rv50water_clear_volume_expected", _rv50water_vol_fb))
+        config.get("rv50water_clear_volume_expected",
+                   getattr(load_cfg, "rv50water_clear_volume_expected", -1)))
     load_cfg.rv50water_duty_volume_expected = int(
-        config.get("rv50water_duty_volume_expected", _rv50water_vol_fb))
+        config.get("rv50water_duty_volume_expected",
+                   getattr(load_cfg, "rv50water_duty_volume_expected", -1)))
     load_cfg.rv50water_left_mop_volume_expected = int(
-        config.get("rv50water_left_mop_volume_expected", _rv50water_vol_fb))
+        config.get("rv50water_left_mop_volume_expected",
+                   getattr(load_cfg, "rv50water_left_mop_volume_expected", -1)))
     load_cfg.rv50water_right_mop_volume_expected = int(
-        config.get("rv50water_right_mop_volume_expected", _rv50water_vol_fb))
+        config.get("rv50water_right_mop_volume_expected",
+                   getattr(load_cfg, "rv50water_right_mop_volume_expected", -1)))
     load_cfg.rv50water_cleaner_level_expected = int(
         config.get("rv50water_cleaner_level_expected",
-                   getattr(load_cfg, "rv50water_cleaner_level_expected", 3)))
+                   getattr(load_cfg, "rv50water_cleaner_level_expected", -1)))
     load_cfg.rv50water_left_mop_temp_min = int(
         config.get("rv50water_left_mop_temp_min",
                    getattr(load_cfg, "rv50water_left_mop_temp_min", 800)))
@@ -1297,6 +1357,8 @@ def load_config():
         config.get("rv50_clear_tank_expected", getattr(load_cfg, "rv50_clear_tank_expected", 0)))
     load_cfg.rv50_duty_tank_expected = int(
         config.get("rv50_duty_tank_expected", getattr(load_cfg, "rv50_duty_tank_expected", 0)))
+    load_cfg.rv50_dust_expected = int(
+        config.get("rv50_dust_expected", getattr(load_cfg, "rv50_dust_expected", 0)))
     load_cfg.rv50_clean_base_expected = int(
         config.get("rv50_clean_base_expected", getattr(load_cfg, "rv50_clean_base_expected", 0)))
     load_cfg.rv50_clean_pump_min = int(
@@ -2382,15 +2444,89 @@ def rv50_proto_parse_77_apply_globals(dat):
     }
 
 
+def _rv50_registry_entry(field):
+    for entry in RV50_FIELD_REGISTRY:
+        if entry["field"] == field:
+            return entry
+    return None
+
+
+def _rv50_range_enabled(lo, hi):
+    return not (int(lo) == 0 and int(hi) == 0)
+
+
+def rv50_field_enabled(field):
+    entry = _rv50_registry_entry(field)
+    if entry is None:
+        return False
+    kind = entry["kind"]
+    if kind == "monitor":
+        return rv50_field_enabled("hot_diff")
+    if kind == "version":
+        return bool((load_cfg.mcu_ver or "").strip())
+    if kind == "string":
+        expect = getattr(load_cfg, entry.get("expect_attr", ""), "")
+        return bool(str(expect).strip())
+    if kind == "expected":
+        expect = getattr(load_cfg, entry.get("expect_attr", ""), 0)
+        return bool(int(expect))
+    if kind == "range":
+        lo = getattr(load_cfg, entry["min_attr"], 0)
+        hi = getattr(load_cfg, entry["max_attr"], 0)
+        return _rv50_range_enabled(lo, hi)
+    if kind == "range_charge":
+        ch = (
+            load_cfg.rv50_charge_Hmin, load_cfg.rv50_charge_Lmin,
+            load_cfg.rv50_charge_Hmax, load_cfg.rv50_charge_Lmax,
+        )
+        return ch != (0, 0, 0, 0)
+    if kind == "range_suction":
+        slo, shi = _rv50_suction_threshold_10pa()
+        return not (slo == 0 and shi == 0)
+    return False
+
+
+def rv50_field_active(step, field):
+    entry = _rv50_registry_entry(field)
+    if entry is None:
+        return False
+    st = int(step) if step is not None else 0
+    if st < 1:
+        return False
+    return st >= int(entry.get("active_from_step", 1))
+
+
+def rv50_step4_enabled_modules():
+    return tuple(
+        f for f in RV50_STEP4_MODULE_FIELDS
+        if rv50_field_enabled(f)
+    )
+
+
+def rv50_build_item_result():
+    items = []
+    for entry in RV50_FIELD_REGISTRY:
+        if entry["ui"] == "base_station_config" and not base_station_config_ui_enabled():
+            continue
+        if rv50_field_enabled(entry["field"]):
+            ui = entry["ui"]
+            items.append({ui: [RV50_UI_LABELS[ui], "", "white"]})
+    return items
+
+
 def rv50_proto_yaml_realtime_ok(p):
     if p is None or rv50_89_mes_done or rv50_realtime_ng:
         return True
     step = int(p.get("step", 0))
-    # [RV50-步骤4监视] 过程不发 0x89；UI 仍由 rv50_field_status 着色
     if step == 4:
         return True
-    for field in RV50_REALTIME_FIELDS:
-        if field == "dust":
+    for entry in RV50_FIELD_REGISTRY:
+        field = entry["field"]
+        if entry["kind"] in ("monitor",):
+            continue
+        if entry.get("step4_module"):
+            continue
+        if not rv50_field_enabled(field):
             continue
         if not rv50_field_active(step, field):
             continue
@@ -2400,38 +2536,26 @@ def rv50_proto_yaml_realtime_ok(p):
     return True
 
 
-def rv50_field_active(step, field):
-    st = int(step) if step is not None else 0
-    if st < 1:
-        return False
-    if field == "charge":
-        return st >= 1
-    if field in ("ir_l", "ir_r", "ir_n"):
-        return st >= 3
-    if field in ("clear_tank", "duty_tank", "dust", "clean_base", "dev_ver", "base_config"):
-        return st >= 4
-    if field == "suction_10pa":
-        return st >= 5
-    if field in ("clean_pump", "vacuum_pump", "base_level_up", "base_level_down", "em_valve"):
-        return st >= 6
-    if field in ("wash_pump", "turbidity", "hot_diff", "hot_start", "hot_end"):
-        return st >= 7
-    return False
-
-
 def rv50_step4_monitor_phase(p):
     return p is not None and int(p.get("step", 0)) == 4
 
 
 def rv50_step4_substep_index(field):
-    for i, (f, *_rest) in enumerate(RV50_STEP4_SUBSTEPS):
+    enabled = rv50_step4_enabled_modules()
+    idx = 0
+    for f, *_rest in RV50_STEP4_SUBSTEPS:
+        if f not in enabled:
+            continue
         if f == field:
-            return i
+            return idx
+        idx += 1
     return -1
 
 
 def rv50_step4_current_substep(p):
     for field, *_rest in RV50_STEP4_SUBSTEPS:
+        if field not in rv50_step4_enabled_modules():
+            continue
         if int(p.get(field, 0)) != 3:
             return field
     return None
@@ -2471,16 +2595,21 @@ def rv50_module_field_status(p, field):
 
 def rv50_step4_flow_complete():
     global rv50_max_step, rv50_last_p
+    mods = rv50_step4_enabled_modules()
+    if not mods:
+        return True
     if rv50_max_step < 4:
         return True
     if rv50_last_p is None:
         return False
-    return all(int(rv50_last_p.get(f, 0)) == 3 for f in RV50_STEP4_MODULE_FIELDS)
+    return all(int(rv50_last_p.get(f, 0)) == 3 for f in mods)
 
 
 def rv50_step4_notify(p):
     global rv50_last_step4_notify_key
     if not rv50_step4_monitor_phase(p):
+        return
+    if not rv50_step4_enabled_modules():
         return
     mf = MainFrame.main_frame
     if mf is None:
@@ -2506,127 +2635,67 @@ def rv50_step4_notify(p):
 
 
 def rv50_field_ok(p, field):
-    if p is None:
+    if not rv50_field_enabled(field):
         return None
-    if field == "dev_ver":
+    if p is None:
+        return False
+    entry = _rv50_registry_entry(field)
+    if entry is None:
+        return None
+    kind = entry["kind"]
+    if kind in ("monitor",):
+        return None
+    if kind == "version":
         return ver_triplet_matches(p.get("dev_ver"), load_cfg.mcu_ver)
-    if field == "base_config":
-        return config_triplet_matches(p.get("base_config"), load_cfg.base_station_config_expected)
-    if field == "charge":
+    if kind == "string":
+        return config_triplet_matches(
+            p.get("base_config"), load_cfg.base_station_config_expected)
+    if kind == "expected":
+        if entry.get("step4_module"):
+            return None
+        expect = int(getattr(load_cfg, entry.get("expect_attr", ""), 0))
+        return int(p.get(field, -1)) == expect
+    if kind == "range_charge":
         ch = (
             load_cfg.rv50_charge_Hmin, load_cfg.rv50_charge_Lmin,
             load_cfg.rv50_charge_Hmax, load_cfg.rv50_charge_Lmax,
         )
-        if ch == (0, 0, 0, 0):
-            return None
         lo = (ch[0] << 8) | (ch[1] & 0xFF)
         hi = (ch[2] << 8) | (ch[3] & 0xFF)
         if lo > hi:
             lo, hi = hi, lo
         return lo <= p["charge"] <= hi
-    if field == "suction_10pa":
+    if kind == "range":
+        lo = int(getattr(load_cfg, entry["min_attr"], 0))
+        hi = int(getattr(load_cfg, entry["max_attr"], 0))
+        if lo > hi:
+            lo, hi = hi, lo
+        val = p.get(field)
+        if val is None:
+            return False
+        return lo <= int(val) <= hi
+    if kind == "range_suction":
         slo, shi = _rv50_suction_threshold_10pa()
-        if slo == 0 and shi == 0:
-            return None
-        return slo <= p["suction_10pa"] <= shi
-    if field == "ir_l":
-        if not load_cfg.rv50_ir_l:
-            return None
-        return p["ir_l"] == load_cfg.rv50_ir_l
-    if field == "ir_r":
-        if not load_cfg.rv50_ir_r:
-            return None
-        return p["ir_r"] == load_cfg.rv50_ir_r
-    if field == "ir_n":
-        if not load_cfg.rv50_ir_n:
-            return None
-        return p["ir_n"] == load_cfg.rv50_ir_n
-    if field == "clear_tank":
-        if not load_cfg.rv50_clear_tank_expected:
-            return None
-        return p["clear_tank"] == load_cfg.rv50_clear_tank_expected
-    if field == "duty_tank":
-        if not load_cfg.rv50_duty_tank_expected:
-            return None
-        return p["duty_tank"] == load_cfg.rv50_duty_tank_expected
-    if field == "clean_base":
-        if not load_cfg.rv50_clean_base_expected:
-            return None
-        return p["clean_base"] == load_cfg.rv50_clean_base_expected
-    if field == "dust":
-        return None
-    if field == "clean_pump":
-        if load_cfg.rv50_clean_pump_min == 0 and load_cfg.rv50_clean_pump_max == 0:
-            return None
-        lo, hi = load_cfg.rv50_clean_pump_min, load_cfg.rv50_clean_pump_max
-        if lo > hi:
-            lo, hi = hi, lo
-        return lo <= p["clean_pump"] <= hi
-    if field == "vacuum_pump":
-        if load_cfg.rv50_vacuum_pump_min == 0 and load_cfg.rv50_vacuum_pump_max == 0:
-            return None
-        lo, hi = load_cfg.rv50_vacuum_pump_min, load_cfg.rv50_vacuum_pump_max
-        if lo > hi:
-            lo, hi = hi, lo
-        return lo <= p["vacuum_pump"] <= hi
-    if field == "base_level_up":
-        if (load_cfg.rv50_base_level_up_min == 0 and load_cfg.rv50_base_level_up_max == 0):
-            return None
-        lo, hi = load_cfg.rv50_base_level_up_min, load_cfg.rv50_base_level_up_max
-        if lo > hi:
-            lo, hi = hi, lo
-        return lo <= p["base_level_up"] <= hi
-    if field == "base_level_down":
-        if (load_cfg.rv50_base_level_down_min == 0 and load_cfg.rv50_base_level_down_max == 0):
-            return None
-        lo, hi = load_cfg.rv50_base_level_down_min, load_cfg.rv50_base_level_down_max
-        if lo > hi:
-            lo, hi = hi, lo
-        return lo <= p["base_level_down"] <= hi
-    if field == "em_valve":
-        if load_cfg.rv50_em_valve_min == 0 and load_cfg.rv50_em_valve_max == 0:
-            return None
-        lo, hi = load_cfg.rv50_em_valve_min, load_cfg.rv50_em_valve_max
-        if lo > hi:
-            lo, hi = hi, lo
-        return lo <= p["em_valve"] <= hi
-    if field == "wash_pump":
-        if load_cfg.rv50_wash_pump_min == 0 and load_cfg.rv50_wash_pump_max == 0:
-            return None
-        lo, hi = load_cfg.rv50_wash_pump_min, load_cfg.rv50_wash_pump_max
-        if lo > hi:
-            lo, hi = hi, lo
-        return lo <= p["wash_pump"] <= hi
-    if field == "turbidity":
-        if load_cfg.rv50_turbidity_min == 0 and load_cfg.rv50_turbidity_max == 0:
-            return None
-        lo, hi = load_cfg.rv50_turbidity_min, load_cfg.rv50_turbidity_max
-        if lo > hi:
-            lo, hi = hi, lo
-        return lo <= p["turbidity"] <= hi
-    if field == "hot_diff":
-        if load_cfg.rv50_hot_diff_min == 0 and load_cfg.rv50_hot_diff_max == 0:
-            return None
-        lo, hi = load_cfg.rv50_hot_diff_min, load_cfg.rv50_hot_diff_max
-        if lo > hi:
-            lo, hi = hi, lo
-        return lo <= p["hot_diff"] <= hi
-    if field in ("hot_start", "hot_end"):
-        return None
+        val = p.get("suction_10pa")
+        if val is None:
+            return False
+        return slo <= int(val) <= shi
     return None
 
 
 def rv50_field_status(p, field):
     if p is None:
         return "untested"
-    step = int(p.get("step", 0))
-    if field in RV50_STEP4_MODULE_FIELDS:
+    entry = _rv50_registry_entry(field)
+    if entry is None:
+        return "untested"
+    if entry.get("step4_module"):
         return rv50_module_field_status(p, field)
-    if field in ("hot_start", "hot_end"):
-        if not rv50_field_active(step, field):
+    if entry["kind"] == "monitor":
+        if not rv50_field_active(p.get("step"), field):
             return "untested"
         return None
-    if not rv50_field_active(step, field):
+    if not rv50_field_active(p.get("step"), field):
         return "untested"
     return rv50_field_ok(p, field)
 
@@ -2635,23 +2704,18 @@ def rv50_field_status_finalize(p, field):
     if p is None:
         return "untested"
     step = int(p.get("step", 0))
+    entry = _rv50_registry_entry(field)
+    if entry is None:
+        return "untested"
     if step < 7:
         return rv50_field_status(p, field)
-    if field in RV50_STEP4_MODULE_FIELDS:
+    if entry.get("step4_module"):
         return True if int(p.get(field, 0)) == 3 else False
-    if field in ("hot_start", "hot_end"):
+    if entry["kind"] == "monitor":
         return None
     if not rv50_field_active(step, field):
         return "untested"
     return rv50_field_ok(p, field)
-
-
-RV50_FINALIZE_FIELDS = (
-    "dev_ver", "base_config", "charge", "ir_l", "ir_r", "ir_n",
-    "clear_tank", "duty_tank", "clean_base", "suction_10pa",
-    "clean_pump", "vacuum_pump", "base_level_up", "base_level_down", "em_valve",
-    "wash_pump", "turbidity", "hot_diff",
-)
 
 
 def rv50_proto_yaml_all_items_ok(p):
@@ -2659,14 +2723,21 @@ def rv50_proto_yaml_all_items_ok(p):
         return False
     if int(p.get("step", 0)) < 7:
         return False
-    for field in RV50_FINALIZE_FIELDS:
+    for entry in RV50_FIELD_REGISTRY:
+        field = entry["field"]
+        if entry["kind"] in ("monitor",):
+            continue
+        if entry.get("step4_module"):
+            continue
+        if not rv50_field_enabled(field):
+            continue
         if not rv50_field_active(7, field):
             continue
         ok = rv50_field_ok(p, field)
         if ok is False:
             return False
     if rv50_max_step >= 4:
-        for f in RV50_STEP4_MODULE_FIELDS:
+        for f in rv50_step4_enabled_modules():
             if int(p.get(f, 0)) != 3:
                 return False
     return True
@@ -2684,12 +2755,14 @@ def rv50_proto_yaml_finalize_ok(p):
 
 
 def rv50_proto_apply_test_ui_row(p, ui_name, field, val, finalize=False):
+    entry = _rv50_registry_entry(field)
     if finalize:
         st = rv50_field_status_finalize(p, field)
     else:
-        if rv50_step4_monitor_phase(p) and field in RV50_STEP4_MODULE_FIELDS:
+        if rv50_step4_monitor_phase(p) and entry and entry.get("step4_module"):
             cur = rv50_step4_current_substep(p)
-            cur_idx = len(RV50_STEP4_SUBSTEPS) if cur is None else rv50_step4_substep_index(cur)
+            enabled = rv50_step4_enabled_modules()
+            cur_idx = len(enabled) if cur is None else rv50_step4_substep_index(cur)
             my_idx = rv50_step4_substep_index(field)
             if my_idx <= cur_idx or int(p.get(field, 0)) == 3:
                 res, show_val = rv50_module_step4_ui(p, field)
@@ -2697,7 +2770,7 @@ def rv50_proto_apply_test_ui_row(p, ui_name, field, val, finalize=False):
                 res, show_val = "untested", ""
             MainFrame.main_frame.up_test_ui(name=ui_name, result=res, value=show_val)
             return
-        if field in ("hot_start", "hot_end") and rv50_field_active(p.get("step"), field):
+        if entry and entry["kind"] == "monitor" and rv50_field_active(p.get("step"), field):
             MainFrame.main_frame.up_test_ui(name=ui_name, result="monitor", value=val)
             return
         st = rv50_field_status(p, field)
@@ -2712,30 +2785,26 @@ def rv50_proto_apply_test_ui_row(p, ui_name, field, val, finalize=False):
     MainFrame.main_frame.up_test_ui(name=ui_name, result=res, value=show_val)
 
 
+def _rv50_format_field_value(p, field):
+    if field == "dev_ver":
+        return p.get("dev_ver") or ""
+    if field == "base_config":
+        return p.get("base_config") or ""
+    if field == "suction_10pa":
+        return _rv30_fmt_suction_kpa(p.get("suction_10pa"))
+    if field in ("ir_l", "ir_r", "ir_n"):
+        return _rv30_fmt_ir_byte(p.get(field))
+    return str(p.get(field, ""))
+
+
 def _rv50_proto_ui_rows(p):
-    return [
-        ("mcu_ver", "dev_ver", p["dev_ver"]),
-        ("base_station_config", "base_config", p.get("base_config") or ""),
-        ("charge_value", "charge", str(p["charge"])),
-        ("rv50_hot_start", "hot_start", str(p["hot_start"])),
-        ("ir_code_left", "ir_l", _rv30_fmt_ir_byte(p["ir_l"])),
-        ("ir_code_right", "ir_r", _rv30_fmt_ir_byte(p["ir_r"])),
-        ("ir_code_near", "ir_n", _rv30_fmt_ir_byte(p["ir_n"])),
-        ("clear_tank_install", "clear_tank", str(p["clear_tank"])),
-        ("duty_tank_install", "duty_tank", str(p["duty_tank"])),
-        ("dust_bug_install", "dust", str(p["dust"])),
-        ("clean_base_install", "clean_base", str(p["clean_base"])),
-        ("dust_collection_suction", "suction_10pa", _rv30_fmt_suction_kpa(p["suction_10pa"])),
-        ("clean_water_pump_current", "clean_pump", str(p["clean_pump"])),
-        ("duty_water_pump_current", "vacuum_pump", str(p["vacuum_pump"])),
-        ("rv50_base_level_up", "base_level_up", str(p["base_level_up"])),
-        ("rv50_base_level_down", "base_level_down", str(p["base_level_down"])),
-        ("electromagnetic_three_way_current", "em_valve", str(p["em_valve"])),
-        ("rv50_hot_end", "hot_end", str(p["hot_end"])),
-        ("cleaner_pump_current", "wash_pump", str(p["wash_pump"])),
-        ("turbidity_data", "turbidity", str(p["turbidity"])),
-        ("rv50_hot_diff", "hot_diff", str(p["hot_diff"])),
-    ]
+    rows = []
+    for entry in RV50_FIELD_REGISTRY:
+        if not rv50_field_enabled(entry["field"]):
+            continue
+        field = entry["field"]
+        rows.append((entry["ui"], field, _rv50_format_field_value(p, field)))
+    return rows
 
 
 def rv50_proto_refresh_test_ui(p, finalize=False):
@@ -2752,44 +2821,80 @@ def rv50_proto_refresh_test_ui_callafter(p):
 
 
 def rv50_proto_add_reports():
-    mes_run.add_report(
-        name="mcu软件版本", result=ver_res, value=dev_ver,
-        val_max=load_cfg.mcu_ver, val_min=load_cfg.mcu_ver)
-    mes_run.add_report(name="充电电流", result="", value=str(charge_value))
-    mes_run.add_report(name="热风开始", result="", value=str(rv50_hot_start_adc))
-    mes_run.add_report(name="左回充码", result="", value=_rv30_fmt_ir_byte(ir_code_left))
-    mes_run.add_report(name="右回充码", result="", value=_rv30_fmt_ir_byte(ir_code_right))
-    mes_run.add_report(name="近卫回充码", result="", value=_rv30_fmt_ir_byte(ir_code_near))
-    mes_run.add_report(name="清水箱在位", result="", value=str(clear_tank_install))
-    mes_run.add_report(name="污水箱在位", result="", value=str(duty_tank_install))
-    mes_run.add_report(name="尘袋", result="", value=str(dust_bug_install))
-    mes_run.add_report(name="清洁底座在位", result="", value=str(clean_base_install))
-    slo, shi = _rv50_suction_threshold_10pa()
-    if slo == 0 and shi == 0:
-        s_min, s_max = "", ""
-    else:
-        s_min, s_max = _rv30_fmt_suction_kpa(slo), _rv30_fmt_suction_kpa(shi)
-    mes_run.add_report(
-        name="集尘吸力kPa", result="", value=_rv30_fmt_suction_kpa(dust_collection_suction),
-        val_min=s_min, val_max=s_max)
-    mes_run.add_report(name="清水泵电流", result="", value=str(clean_water_pump_current))
-    mes_run.add_report(name="真空泵电流", result="", value=str(duty_water_pump_current))
-    mes_run.add_report(name="底座液位(抬起)", result="", value=str(rv50_base_level_up_adc))
-    mes_run.add_report(name="底座液位(按下)", result="", value=str(rv50_base_level_down_adc))
-    mes_run.add_report(name="电磁三通电流", result="", value=str(electromagnetic_three_way_current))
-    mes_run.add_report(name="热风结束", result="", value=str(rv50_hot_end_adc))
-    mes_run.add_report(name="清洁泵电流", result="", value=str(cleaner_pump_current))
-    mes_run.add_report(name="浊度数据", result="", value=str(turbidity_data))
-    mes_run.add_report(name="热风差值", result="", value=str(rv50_hot_diff_adc))
-    if rv50_last_p is not None and load_cfg.base_station_config_expected:
-        cfg_ok = rv50_field_ok(rv50_last_p, "base_config")
-        mes_run.add_report(
-            name="基站配置码",
-            result="OK" if cfg_ok else "NG",
-            value=rv50_last_p.get("base_config") or "",
-            val_min=load_cfg.base_station_config_expected,
-            val_max=load_cfg.base_station_config_expected,
-        )
+    for entry in RV50_FIELD_REGISTRY:
+        if not rv50_field_enabled(entry["field"]):
+            continue
+        field = entry["field"]
+        kind = entry["kind"]
+        name = entry["mes"]
+        if rv50_last_p is None:
+            mes_run.add_report(name=name, result="NG", value="")
+            continue
+        if kind == "version":
+            ok = rv50_field_ok(rv50_last_p, field)
+            mes_run.add_report(
+                name=name, result="OK" if ok else "NG", value=rv50_last_p.get("dev_ver") or "",
+                val_min=load_cfg.mcu_ver, val_max=load_cfg.mcu_ver)
+            continue
+        if kind == "string":
+            ok = rv50_field_ok(rv50_last_p, field)
+            expect = str(getattr(load_cfg, entry.get("expect_attr", ""), "")).strip()
+            mes_run.add_report(
+                name=name, result="OK" if ok else "NG",
+                value=rv50_last_p.get("base_config") or "",
+                val_min=expect, val_max=expect)
+            continue
+        if kind == "expected":
+            if entry.get("step4_module"):
+                ok = True if int(rv50_last_p.get(field, 0)) == 3 else False
+                val = str(rv50_last_p.get(field, ""))
+                expect = str(int(getattr(load_cfg, entry.get("expect_attr", ""), 0)))
+                mes_run.add_report(name=name, result="OK" if ok else "NG",
+                                   value=val, val_min=expect, val_max=expect)
+            else:
+                ok = rv50_field_ok(rv50_last_p, field)
+                expect = int(getattr(load_cfg, entry.get("expect_attr", ""), 0))
+                val = rv50_last_p.get(field)
+                mes_run.add_report(name=name, result="OK" if ok else "NG",
+                                   value=_rv30_fmt_ir_byte(val) if field.startswith("ir_") else str(val),
+                                   val_min=str(expect), val_max=str(expect))
+            continue
+        if kind == "range_suction":
+            ok = rv50_field_ok(rv50_last_p, field)
+            slo, shi = _rv50_suction_threshold_10pa()
+            mes_run.add_report(
+                name=name, result="OK" if ok else "NG",
+                value=_rv30_fmt_suction_kpa(rv50_last_p.get("suction_10pa")),
+                val_min=_rv30_fmt_suction_kpa(slo), val_max=_rv30_fmt_suction_kpa(shi))
+            continue
+        if kind == "range_charge":
+            ok = rv50_field_ok(rv50_last_p, field)
+            ch = (
+                load_cfg.rv50_charge_Hmin, load_cfg.rv50_charge_Lmin,
+                load_cfg.rv50_charge_Hmax, load_cfg.rv50_charge_Lmax,
+            )
+            lo = (ch[0] << 8) | (ch[1] & 0xFF)
+            hi = (ch[2] << 8) | (ch[3] & 0xFF)
+            if lo > hi:
+                lo, hi = hi, lo
+            mes_run.add_report(
+                name=name, result="OK" if ok else "NG",
+                value=str(rv50_last_p.get("charge", "")),
+                val_min=str(lo), val_max=str(hi))
+            continue
+        if kind == "range":
+            ok = rv50_field_ok(rv50_last_p, field)
+            lo = int(getattr(load_cfg, entry["min_attr"], 0))
+            hi = int(getattr(load_cfg, entry["max_attr"], 0))
+            if lo > hi:
+                lo, hi = hi, lo
+            mes_run.add_report(
+                name=name, result="OK" if ok else "NG",
+                value=str(rv50_last_p.get(field, "")),
+                val_min=str(lo), val_max=str(hi))
+            continue
+        if kind == "monitor":
+            mes_run.add_report(name=name, result="", value=str(rv50_last_p.get(field, "")))
 
 
 def rv50_proto_finalize_88(dev, dat):
@@ -2834,7 +2939,6 @@ def rv50_proto_finalize_88(dev, dat):
     mes_ok = (
         p is not None
         and not rv50_realtime_ng
-        and ver_res == "OK"
         and rv50_proto_yaml_finalize_ok(p)
         and rv50_step4_flow_complete()
     )
@@ -2851,14 +2955,14 @@ def rv50_proto_finalize_88(dev, dat):
     if p is not None:
         def _finalize_ui_refresh():
             for ui_name, field, val in _rv50_proto_ui_rows(p):
-                if (field in RV50_STEP4_MODULE_FIELDS
+                entry = _rv50_registry_entry(field)
+                if (entry and entry.get("step4_module")
                         and int(p.get("step", 0)) == 4 and not mes_ok):
                     res, show_val = rv50_module_step4_ui(p, field)
                     MainFrame.main_frame.up_test_ui(name=ui_name, result=res, value=show_val)
                     continue
-                if mes_ok and field in ("hot_start", "hot_end"):
-                    MainFrame.main_frame.up_test_ui(
-                        name=ui_name, result="pass", value=val)
+                if mes_ok and entry and entry["kind"] == "monitor":
+                    MainFrame.main_frame.up_test_ui(name=ui_name, result="pass", value=val)
                     continue
                 rv50_proto_apply_test_ui_row(p, ui_name, field, val, finalize=True)
         wx.CallAfter(_finalize_ui_refresh)
@@ -5615,83 +5719,253 @@ def rv50water_parse_77(dat):
     }
 
 
-_RV50WATER_VOLUME_EXPECT_ATTR = {
-    "clear_vol": "rv50water_clear_volume_expected",
-    "duty_vol": "rv50water_duty_volume_expected",
-    "left_mop_vol": "rv50water_left_mop_volume_expected",
-    "right_mop_vol": "rv50water_right_mop_volume_expected",
+RV50WATER_UI_LABELS = {
+    "clear_water_volume": "清水通路水量：",
+    "duty_water_volume": "污水通路水量：",
+    "left_mop_water_volume": "左拖布水量：",
+    "right_mop_water_volume": "右拖布水量：",
+    "left_mop_temperature": "左拖布温度adc：",
+    "right_mop_temperature": "右拖布温度adc：",
+    "cleaner_liquid_level": "清洁剂液位：",
+    "base_hot_water_temp": "基站热水温度adc：",
+    "base_station_ver": "基站版本：",
+    "base_station_config": "基站配置码：",
 }
 
+RV50WATER_FIELD_REGISTRY = [
+    {"field": "clear_vol", "kind": "exact_int", "ui": "clear_water_volume",
+     "mes": "清水通路过水", "parse_key": "clear_water_volume",
+     "expect_attr": "rv50water_clear_volume_expected"},
+    {"field": "duty_vol", "kind": "exact_int", "ui": "duty_water_volume",
+     "mes": "污水通路过水", "parse_key": "duty_water_volume",
+     "expect_attr": "rv50water_duty_volume_expected"},
+    {"field": "left_mop_vol", "kind": "exact_int", "ui": "left_mop_water_volume",
+     "mes": "左拖布过水", "parse_key": "left_mop_water_volume",
+     "expect_attr": "rv50water_left_mop_volume_expected"},
+    {"field": "right_mop_vol", "kind": "exact_int", "ui": "right_mop_water_volume",
+     "mes": "右拖布过水", "parse_key": "right_mop_water_volume",
+     "expect_attr": "rv50water_right_mop_volume_expected"},
+    {"field": "left_mop_temp", "kind": "range_int", "ui": "left_mop_temperature",
+     "mes": "左拖布温度adc", "parse_key": "left_mop_temperature",
+     "min_attr": "rv50water_left_mop_temp_min", "max_attr": "rv50water_left_mop_temp_max"},
+    {"field": "right_mop_temp", "kind": "range_int", "ui": "right_mop_temperature",
+     "mes": "右拖布温度adc", "parse_key": "right_mop_temperature",
+     "min_attr": "rv50water_right_mop_temp_min", "max_attr": "rv50water_right_mop_temp_max"},
+    {"field": "cleaner_level", "kind": "exact_int", "ui": "cleaner_liquid_level",
+     "mes": "清洁剂液位", "parse_key": "cleaner_liquid_level",
+     "expect_attr": "rv50water_cleaner_level_expected"},
+    {"field": "base_hot_temp", "kind": "range_int", "ui": "base_hot_water_temp",
+     "mes": "基站热水温度adc", "parse_key": "base_hot_water_temp",
+     "min_attr": "rv50water_base_hot_temp_min", "max_attr": "rv50water_base_hot_temp_max"},
+    {"field": "base_ver", "kind": "version", "ui": "base_station_ver", "mes": "基站版本",
+     "parse_key": "base_ver"},
+    {"field": "base_config", "kind": "string", "ui": "base_station_config", "mes": "基站配置码",
+     "parse_key": "base_config", "expect_attr": "base_station_config_expected"},
+]
 
-def rv50water_volume_expected(field):
-    return int(getattr(load_cfg, _RV50WATER_VOLUME_EXPECT_ATTR[field]))
+
+def _rv50water_registry_entry(field):
+    for entry in RV50WATER_FIELD_REGISTRY:
+        if entry["field"] == field:
+            return entry
+    return None
 
 
-def rv50water_volume_ok(field, val):
-    return int(val) == rv50water_volume_expected(field)
+def _rv50water_range_enabled(lo, hi):
+    return not (int(lo) == 0 and int(hi) == 0)
 
 
-def rv50water_cleaner_level_ok(val):
-    return int(val) == int(load_cfg.rv50water_cleaner_level_expected)
+def _rv50water_exact_enabled(expect_attr):
+    return int(getattr(load_cfg, expect_attr, -1)) >= 0
 
 
-def rv50water_temp_in_range(field, val):
-    if val is None:
+def rv50water_field_enabled(field):
+    entry = _rv50water_registry_entry(field)
+    if entry is None:
         return False
-    v = int(val)
-    if field == "left_mop":
-        lo, hi = load_cfg.rv50water_left_mop_temp_min, load_cfg.rv50water_left_mop_temp_max
-    elif field == "right_mop":
-        lo, hi = load_cfg.rv50water_right_mop_temp_min, load_cfg.rv50water_right_mop_temp_max
-    elif field == "base_hot":
-        lo, hi = load_cfg.rv50water_base_hot_temp_min, load_cfg.rv50water_base_hot_temp_max
-    else:
-        return False
-    if lo > hi:
-        lo, hi = hi, lo
-    return lo <= v <= hi
+    kind = entry["kind"]
+    if kind == "exact_int":
+        return _rv50water_exact_enabled(entry.get("expect_attr", ""))
+    if kind == "range_int":
+        lo = getattr(load_cfg, entry["min_attr"], 0)
+        hi = getattr(load_cfg, entry["max_attr"], 0)
+        return _rv50water_range_enabled(lo, hi)
+    if kind == "version":
+        return bool((load_cfg.mcu_ver or "").strip())
+    if kind == "string":
+        expect = getattr(load_cfg, entry.get("expect_attr", ""), "")
+        return bool(str(expect).strip())
+    return False
 
 
-def rv50water_field_ok(field, p):
+def rv50water_build_item_result():
+    items = []
+    for entry in RV50WATER_FIELD_REGISTRY:
+        if entry["ui"] == "base_station_config" and not base_station_config_ui_enabled():
+            continue
+        if rv50water_field_enabled(entry["field"]):
+            ui = entry["ui"]
+            items.append({ui: [RV50WATER_UI_LABELS[ui], "", "white"]})
+    return items
+
+
+def rv50water_int_limits(field):
+    entry = _rv50water_registry_entry(field)
+    if entry is None:
+        return 0, 0
+    return (
+        int(getattr(load_cfg, entry["min_attr"], 0)),
+        int(getattr(load_cfg, entry["max_attr"], 0)),
+    )
+
+
+def rv50water_field_ok(p, field):
+    if not rv50water_field_enabled(field):
+        return None
     if p is None:
         return False
-    if field == "clear_vol":
-        return rv50water_volume_ok("clear_vol", p.get("clear_water_volume"))
-    if field == "duty_vol":
-        return rv50water_volume_ok("duty_vol", p.get("duty_water_volume"))
-    if field == "left_mop_vol":
-        return rv50water_volume_ok("left_mop_vol", p.get("left_mop_water_volume"))
-    if field == "right_mop_vol":
-        return rv50water_volume_ok("right_mop_vol", p.get("right_mop_water_volume"))
-    if field == "left_mop_temp":
-        return rv50water_temp_in_range("left_mop", p.get("left_mop_temperature"))
-    if field == "right_mop_temp":
-        return rv50water_temp_in_range("right_mop", p.get("right_mop_temperature"))
-    if field == "cleaner_level":
-        return rv50water_cleaner_level_ok(p.get("cleaner_liquid_level"))
-    if field == "base_hot_temp":
-        return rv50water_temp_in_range("base_hot", p.get("base_hot_water_temp"))
-    return False
+    entry = _rv50water_registry_entry(field)
+    if entry is None:
+        return None
+    kind = entry["kind"]
+    if kind == "exact_int":
+        expect = int(getattr(load_cfg, entry.get("expect_attr", ""), -1))
+        actual = p.get(entry.get("parse_key"))
+        if actual is None:
+            return False
+        return int(actual) == expect
+    if kind == "range_int":
+        val = p.get(entry.get("parse_key"))
+        if val is None:
+            return False
+        lo, hi = rv50water_int_limits(field)
+        if lo > hi:
+            lo, hi = hi, lo
+        v = int(val)
+        return lo <= v <= hi
+    if kind == "version":
+        return ver_triplet_matches(p.get("base_ver"), load_cfg.mcu_ver)
+    if kind == "string":
+        return config_triplet_matches(
+            p.get("base_config"), load_cfg.base_station_config_expected)
+    return None
 
 
 def rv50water_all_ok(p):
     if p is None:
         return False
-    for check in (
-        rv50water_field_ok("clear_vol", p),
-        rv50water_field_ok("duty_vol", p),
-        rv50water_field_ok("left_mop_vol", p),
-        rv50water_field_ok("right_mop_vol", p),
-        rv50water_field_ok("left_mop_temp", p),
-        rv50water_field_ok("right_mop_temp", p),
-        rv50water_field_ok("cleaner_level", p),
-        rv50water_field_ok("base_hot_temp", p),
-        rv50_base_string_field_ok("base_ver", p.get("base_ver")),
-        rv50_base_string_field_ok("base_config", p.get("base_config")),
-    ):
-        if check is False:
+    for entry in RV50WATER_FIELD_REGISTRY:
+        ok = rv50water_field_ok(p, entry["field"])
+        if ok is False:
             return False
     return True
+
+
+def rv50water_ui_result_for_field(field, p, finalize):
+    entry = _rv50water_registry_entry(field)
+    if entry is None:
+        return "monitor", ""
+    kind = entry["kind"]
+    if kind in ("exact_int", "range_int"):
+        val = p.get(entry.get("parse_key")) if p else None
+        disp = "" if val is None else str(val)
+        if not finalize:
+            return "monitor", disp
+        ok = rv50water_field_ok(p, field)
+        if ok is None or ok is True:
+            return "pass", disp
+        return "fail", disp
+    if kind == "version":
+        return rv50water_ui_result_for_string("base_ver", p.get("base_ver") if p else None, finalize)
+    if kind == "string":
+        return rv50water_ui_result_for_string("base_config", p.get("base_config") if p else None, finalize)
+    return "monitor", ""
+
+
+def rv50water_string_field_ok(field, actual):
+    if field == "base_ver":
+        return ver_triplet_matches(actual, load_cfg.mcu_ver)
+    if field == "base_config":
+        return config_triplet_matches(actual, load_cfg.base_station_config_expected)
+    return None
+
+
+def rv50water_ui_result_for_string(field, value, finalize):
+    disp = value or ""
+    if not finalize:
+        return "monitor", disp
+    ok = rv50water_string_field_ok(field, value)
+    if ok is None or ok is True:
+        return "pass", disp
+    return "fail", disp
+
+
+def _rv50water_refresh_test_ui_impl(p, finalize):
+    if p is None:
+        return
+    for entry in RV50WATER_FIELD_REGISTRY:
+        field = entry["field"]
+        if not rv50water_field_enabled(field):
+            continue
+        res, val = rv50water_ui_result_for_field(field, p, finalize)
+        MainFrame.main_frame.up_test_ui(name=entry["ui"], result=res, value=val)
+
+
+def rv50water_add_string_report(name, field, value):
+    ok = rv50water_string_field_ok(field, value)
+    if ok is None:
+        return
+    result = "OK" if ok else "NG"
+    if field == "base_ver":
+        expect = load_cfg.mcu_ver
+    else:
+        expect = load_cfg.base_station_config_expected
+    mes_run.add_report(
+        name=name, result=result, value=value or "",
+        val_min=expect, val_max=expect,
+    )
+
+
+def rv50water_add_reports(p):
+    if p is None:
+        for entry in RV50WATER_FIELD_REGISTRY:
+            if not rv50water_field_enabled(entry["field"]):
+                continue
+            mes_run.add_report(name=entry["mes"], result="NG", value="无数据")
+        return
+    for entry in RV50WATER_FIELD_REGISTRY:
+        field = entry["field"]
+        if not rv50water_field_enabled(field):
+            continue
+        kind = entry["kind"]
+        if kind == "exact_int":
+            val = p.get(entry.get("parse_key"))
+            expect = int(getattr(load_cfg, entry.get("expect_attr", ""), -1))
+            mes_run.add_report(
+                name=entry["mes"],
+                result="OK" if rv50water_field_ok(p, field) else "NG",
+                value=str(val) if val is not None else "",
+                val_min=expect,
+                val_max=expect,
+            )
+        elif kind == "range_int":
+            val = p.get(entry.get("parse_key"))
+            lo, hi = rv50water_int_limits(field)
+            mes_run.add_report(
+                name=entry["mes"],
+                result="OK" if rv50water_field_ok(p, field) else "NG",
+                value=str(val) if val is not None else "",
+                val_min=lo,
+                val_max=hi,
+            )
+        elif field == "base_ver":
+            rv50water_add_string_report(entry["mes"], "base_ver", p.get("base_ver"))
+        elif field == "base_config":
+            rv50water_add_string_report(entry["mes"], "base_config", p.get("base_config"))
+
+
+def rv50water_refresh_test_ui_callafter(p, finalize=False):
+    wx.CallAfter(_rv50water_refresh_test_ui_impl, p, finalize)
 
 
 def rv50water_step_notify(step):
@@ -5724,114 +5998,6 @@ def rv50water_level_notify(level):
         msg = "请注意后续操作提示"
         color = wx.RED
     wx.CallAfter(MainFrame.main_frame.up_notification_ui, second=msg, color=color)
-
-
-def rv50water_ui_result_for_field(field, p, finalize):
-    ui_keys = {
-        "clear_vol": "clear_water_volume",
-        "duty_vol": "duty_water_volume",
-        "left_mop_vol": "left_mop_water_volume",
-        "right_mop_vol": "right_mop_water_volume",
-        "left_mop_temp": "left_mop_temperature",
-        "right_mop_temp": "right_mop_temperature",
-        "cleaner_level": "cleaner_liquid_level",
-        "base_hot_temp": "base_hot_water_temp",
-    }
-    val = p.get(ui_keys[field]) if p else None
-    disp = "" if val is None else str(val)
-    if not finalize:
-        return "monitor", disp
-    if rv50water_field_ok(field, p):
-        return "pass", disp
-    return "fail", disp
-
-
-def _rv50water_refresh_test_ui_impl(p, finalize):
-    if p is None:
-        return
-    rows = (
-        ("clear_water_volume", "clear_vol"),
-        ("duty_water_volume", "duty_vol"),
-        ("left_mop_water_volume", "left_mop_vol"),
-        ("right_mop_water_volume", "right_mop_vol"),
-        ("left_mop_temperature", "left_mop_temp"),
-        ("right_mop_temperature", "right_mop_temp"),
-        ("cleaner_liquid_level", "cleaner_level"),
-        ("base_hot_water_temp", "base_hot_temp"),
-    )
-    for ui_name, field in rows:
-        res, val = rv50water_ui_result_for_field(field, p, finalize)
-        MainFrame.main_frame.up_test_ui(name=ui_name, result=res, value=val)
-    for ui_name, field, value in (
-        ("base_station_ver", "base_ver", p.get("base_ver")),
-        ("base_station_config", "base_config", p.get("base_config")),
-    ):
-        res, val = rv50_base_ui_result_for_string(field, value, finalize)
-        MainFrame.main_frame.up_test_ui(name=ui_name, result=res, value=val)
-
-
-def rv50water_refresh_test_ui_callafter(p, finalize=False):
-    wx.CallAfter(_rv50water_refresh_test_ui_impl, p, finalize)
-
-
-def rv50water_add_reports(p):
-    exp_lvl = load_cfg.rv50water_cleaner_level_expected
-    if p is None:
-        mes_run.add_report(name="清水通路过水", result="NG", value="无数据")
-        mes_run.add_report(name="污水通路过水", result="NG", value="无数据")
-        mes_run.add_report(name="左拖布过水", result="NG", value="无数据")
-        mes_run.add_report(name="右拖布过水", result="NG", value="无数据")
-        mes_run.add_report(name="左拖布温度adc", result="NG", value="无数据")
-        mes_run.add_report(name="右拖布温度adc", result="NG", value="无数据")
-        mes_run.add_report(name="清洁剂液位", result="NG", value="无数据")
-        mes_run.add_report(name="基站热水温度adc", result="NG", value="无数据")
-        mes_run.add_report(name="基站版本", result="NG", value="无数据")
-        mes_run.add_report(name="基站配置码", result="NG", value="无数据")
-        return
-    for mes_name, vol_field, parse_key in (
-        ("清水通路过水", "clear_vol", "clear_water_volume"),
-        ("污水通路过水", "duty_vol", "duty_water_volume"),
-        ("左拖布过水", "left_mop_vol", "left_mop_water_volume"),
-        ("右拖布过水", "right_mop_vol", "right_mop_water_volume"),
-    ):
-        exp_vol = rv50water_volume_expected(vol_field)
-        mes_run.add_report(
-            name=mes_name,
-            result="OK" if rv50water_field_ok(vol_field, p) else "NG",
-            value=str(p.get(parse_key)),
-            val_min=exp_vol,
-            val_max=exp_vol,
-        )
-    mes_run.add_report(
-        name="左拖布温度adc",
-        result="OK" if rv50water_field_ok("left_mop_temp", p) else "NG",
-        value=str(p.get("left_mop_temperature")),
-        val_min=load_cfg.rv50water_left_mop_temp_min,
-        val_max=load_cfg.rv50water_left_mop_temp_max,
-    )
-    mes_run.add_report(
-        name="右拖布温度adc",
-        result="OK" if rv50water_field_ok("right_mop_temp", p) else "NG",
-        value=str(p.get("right_mop_temperature")),
-        val_min=load_cfg.rv50water_right_mop_temp_min,
-        val_max=load_cfg.rv50water_right_mop_temp_max,
-    )
-    mes_run.add_report(
-        name="清洁剂液位",
-        result="OK" if rv50water_field_ok("cleaner_level", p) else "NG",
-        value=str(p.get("cleaner_liquid_level")),
-        val_min=exp_lvl,
-        val_max=exp_lvl,
-    )
-    mes_run.add_report(
-        name="基站热水温度adc",
-        result="OK" if rv50water_field_ok("base_hot_temp", p) else "NG",
-        value=str(p.get("base_hot_water_temp")),
-        val_min=load_cfg.rv50water_base_hot_temp_min,
-        val_max=load_cfg.rv50water_base_hot_temp_max,
-    )
-    rv50_base_add_string_report("基站版本", "base_ver", p.get("base_ver"))
-    rv50_base_add_string_report("基站配置码", "base_config", p.get("base_config"))
 
 
 def rv50water_finalize_88(dev, dat):
@@ -5925,7 +6091,7 @@ def RV50_water_mode(dev, cmd, dat):
             rv50water_last_step = st
             if st in (1, 3):
                 rv50water_step_notify(st)
-        if st == 2:
+        if st == 2 and rv50water_field_enabled("cleaner_level"):
             rv50water_level_notify(p.get("cleaner_liquid_level"))
     elif cmd == 0x88:
         rv50water_finalize_88(dev, dat)
@@ -5968,37 +6134,115 @@ def rv50air_parse_77(dat):
     }
 
 
-def rv50air_field_in_range(field, kpa):
-    if kpa is None:
+RV50AIR_UI_LABELS = {
+    "clear_water_pressure": "清水通路气压(kPa)：",
+    "duty_water_pressure": "污水通路气压(kPa)：",
+    "mop_water_pressure": "拖布通路气压(kPa)：",
+    "base_station_ver": "基站版本：",
+    "base_station_config": "基站配置码：",
+}
+
+RV50AIR_FIELD_REGISTRY = [
+    {"field": "clear", "kind": "range_kpa", "ui": "clear_water_pressure", "mes": "清水通路气压",
+     "min_attr": "rv50air_clear_kpa_min", "max_attr": "rv50air_clear_kpa_max"},
+    {"field": "mop", "kind": "range_kpa", "ui": "mop_water_pressure", "mes": "拖布通路气压",
+     "min_attr": "rv50air_mop_kpa_min", "max_attr": "rv50air_mop_kpa_max"},
+    {"field": "duty", "kind": "range_kpa", "ui": "duty_water_pressure", "mes": "污水通路气压",
+     "min_attr": "rv50air_duty_kpa_min", "max_attr": "rv50air_duty_kpa_max"},
+    {"field": "base_ver", "kind": "version", "ui": "base_station_ver", "mes": "基站版本"},
+    {"field": "base_config", "kind": "string", "ui": "base_station_config", "mes": "基站配置码",
+     "expect_attr": "base_station_config_expected"},
+]
+
+
+def _rv50air_kpa_range_enabled(lo, hi):
+    return not (float(lo) == 0.0 and float(hi) == 0.0)
+
+
+def _rv50air_registry_entry(field):
+    for entry in RV50AIR_FIELD_REGISTRY:
+        if entry["field"] == field:
+            return entry
+    return None
+
+
+def rv50air_field_enabled(field):
+    entry = _rv50air_registry_entry(field)
+    if entry is None:
         return False
-    if field == "clear":
-        lo, hi = load_cfg.rv50air_clear_kpa_min, load_cfg.rv50air_clear_kpa_max
-    elif field == "mop":
-        lo, hi = load_cfg.rv50air_mop_kpa_min, load_cfg.rv50air_mop_kpa_max
-    elif field == "duty":
-        lo, hi = load_cfg.rv50air_duty_kpa_min, load_cfg.rv50air_duty_kpa_max
-    else:
+    kind = entry["kind"]
+    if kind == "range_kpa":
+        lo = getattr(load_cfg, entry["min_attr"], 0.0)
+        hi = getattr(load_cfg, entry["max_attr"], 0.0)
+        return _rv50air_kpa_range_enabled(lo, hi)
+    if kind == "version":
+        return bool((load_cfg.mcu_ver or "").strip())
+    if kind == "string":
+        expect = getattr(load_cfg, entry.get("expect_attr", ""), "")
+        return bool(str(expect).strip())
+    return False
+
+
+def rv50air_build_item_result():
+    items = []
+    for entry in RV50AIR_FIELD_REGISTRY:
+        field = entry["field"]
+        if field == "base_config":
+            if base_station_config_ui_enabled():
+                items.append({entry["ui"]: [RV50AIR_UI_LABELS[entry["ui"]], "", "white"]})
+        elif rv50air_field_enabled(field):
+            items.append({entry["ui"]: [RV50AIR_UI_LABELS[entry["ui"]], "", "white"]})
+    return items
+
+
+def rv50air_kpa_limits(field):
+    entry = _rv50air_registry_entry(field)
+    if entry is None:
+        return 0.0, 0.0
+    return (
+        float(getattr(load_cfg, entry["min_attr"], 0.0)),
+        float(getattr(load_cfg, entry["max_attr"], 0.0)),
+    )
+
+
+def rv50air_field_ok(p, field):
+    if not rv50air_field_enabled(field):
+        return None
+    if p is None:
         return False
-    if lo > hi:
-        lo, hi = hi, lo
-    return lo <= kpa <= hi
+    entry = _rv50air_registry_entry(field)
+    if entry is None:
+        return None
+    kind = entry["kind"]
+    if kind == "range_kpa":
+        kpa = p.get({"clear": "clear_kpa", "mop": "mop_kpa", "duty": "duty_kpa"}.get(field))
+        if kpa is None:
+            return False
+        lo, hi = rv50air_kpa_limits(field)
+        if lo > hi:
+            lo, hi = hi, lo
+        return lo <= kpa <= hi
+    if kind == "string" and field == "base_config":
+        return rv50air_string_field_ok("base_config", p.get("base_config"))
+    if kind == "version":
+        return ver_triplet_matches(p.get("base_ver"), load_cfg.mcu_ver)
+    return None
 
 
 def rv50air_string_field_ok(field, actual):
-    return rv50_base_string_field_ok(field, actual)
+    if field == "base_ver":
+        return ver_triplet_matches(actual, load_cfg.mcu_ver)
+    if field == "base_config":
+        return config_triplet_matches(actual, load_cfg.base_station_config_expected)
+    return None
 
 
 def rv50air_all_ok(p):
     if p is None:
         return False
-    for check in (
-        rv50air_field_in_range("clear", p.get("clear_kpa")),
-        rv50air_field_in_range("mop", p.get("mop_kpa")),
-        rv50air_field_in_range("duty", p.get("duty_kpa")),
-        rv50air_string_field_ok("base_ver", p.get("base_ver")),
-        rv50air_string_field_ok("base_config", p.get("base_config")),
-    ):
-        if check is False:
+    for entry in RV50AIR_FIELD_REGISTRY:
+        ok = rv50air_field_ok(p, entry["field"])
+        if ok is False:
             return False
     return True
 
@@ -6007,6 +6251,111 @@ def rv50air_fmt_kpa(kpa):
     if kpa is None:
         return ""
     return "{:.2f}".format(kpa)
+
+
+def _rv50air_kpa_field_ok(field, kpa):
+    if not rv50air_field_enabled(field):
+        return None
+    if kpa is None:
+        return False
+    lo, hi = rv50air_kpa_limits(field)
+    if lo > hi:
+        lo, hi = hi, lo
+    return lo <= kpa <= hi
+
+
+def rv50air_ui_result_for_kpa(field, kpa, finalize):
+    if not finalize:
+        return "monitor", rv50air_fmt_kpa(kpa)
+    ok = _rv50air_kpa_field_ok(field, kpa)
+    if ok is None or ok is True:
+        return "pass", rv50air_fmt_kpa(kpa)
+    return "fail", rv50air_fmt_kpa(kpa)
+
+
+def rv50air_ui_result_for_string(field, value, finalize):
+    disp = value or ""
+    if not finalize:
+        return "monitor", disp
+    ok = rv50air_string_field_ok(field, value)
+    if ok is None or ok is True:
+        return "pass", disp
+    return "fail", disp
+
+
+def _rv50air_refresh_test_ui_impl(p, finalize):
+    if p is None:
+        return
+    _kpa_map = {
+        "clear": p.get("clear_kpa"),
+        "mop": p.get("mop_kpa"),
+        "duty": p.get("duty_kpa"),
+    }
+    for entry in RV50AIR_FIELD_REGISTRY:
+        field = entry["field"]
+        if field == "base_config":
+            continue
+        if not rv50air_field_enabled(field):
+            continue
+        if entry["kind"] == "range_kpa":
+            res, val = rv50air_ui_result_for_kpa(field, _kpa_map.get(field), finalize)
+        elif field == "base_ver":
+            res, val = rv50air_ui_result_for_string("base_ver", p.get("base_ver"), finalize)
+        else:
+            continue
+        MainFrame.main_frame.up_test_ui(name=entry["ui"], result=res, value=val)
+    res, val = rv50air_ui_result_for_config_readback(p.get("base_config"), finalize)
+    MainFrame.main_frame.up_test_ui(name="base_station_config", result=res, value=val)
+
+
+def rv50air_add_string_report(name, field, value):
+    ok = rv50air_string_field_ok(field, value)
+    if ok is None:
+        return
+    result = "OK" if ok else "NG"
+    if field == "base_ver":
+        expect = load_cfg.mcu_ver
+    else:
+        expect = load_cfg.base_station_config_expected
+    mes_run.add_report(
+        name=name, result=result, value=value or "",
+        val_min=expect, val_max=expect,
+    )
+
+
+def rv50air_add_reports(p):
+    if p is None:
+        for entry in RV50AIR_FIELD_REGISTRY:
+            if not rv50air_field_enabled(entry["field"]):
+                continue
+            elif entry["field"] == "base_config":
+                rv50air_add_string_report(entry["mes"], "base_config", None)
+            else:
+                mes_run.add_report(name=entry["mes"], result="NG", value="无数据")
+        return
+    for entry in RV50AIR_FIELD_REGISTRY:
+        field = entry["field"]
+        if not rv50air_field_enabled(field):
+            continue
+        if entry["kind"] == "range_kpa":
+            kpa_key = {"clear": "clear_kpa", "mop": "mop_kpa", "duty": "duty_kpa"}[field]
+            kpa = p.get(kpa_key)
+            lo, hi = rv50air_kpa_limits(field)
+            mes_run.add_report(
+                name=entry["mes"],
+                result="OK" if _rv50air_kpa_field_ok(field, kpa) else "NG",
+                value=rv50air_fmt_kpa(kpa),
+                val_min=lo,
+                val_max=hi,
+            )
+        elif field == "base_ver":
+            rv50air_add_string_report(entry["mes"], "base_ver", p.get("base_ver"))
+        elif field == "base_config":
+            rv50air_add_string_report(entry["mes"], "base_config", p.get("base_config"))
+
+
+def rv50air_refresh_test_ui_callafter(p, finalize=False):
+    wx.CallAfter(_rv50air_refresh_test_ui_impl, p, finalize)
 
 
 def rv50air_step_notify(step):
@@ -6020,78 +6369,6 @@ def rv50air_step_notify(step):
     else:
         msg = "治具步骤：" + str(st)
     wx.CallAfter(MainFrame.main_frame.up_notification_ui, second=msg, color=wx.BLUE)
-
-
-def rv50air_ui_result_for_field(field, kpa, finalize):
-    if not finalize:
-        return "monitor", rv50air_fmt_kpa(kpa)
-    if rv50air_field_in_range(field, kpa):
-        return "pass", rv50air_fmt_kpa(kpa)
-    return "fail", rv50air_fmt_kpa(kpa)
-
-
-def rv50air_ui_result_for_string(field, value, finalize):
-    return rv50_base_ui_result_for_string(field, value, finalize)
-
-
-def _rv50air_refresh_test_ui_impl(p, finalize):
-    if p is None:
-        return
-    for ui_name, field, kpa in (
-        ("clear_water_pressure", "clear", p.get("clear_kpa")),
-        ("duty_water_pressure", "duty", p.get("duty_kpa")),
-        ("mop_water_pressure", "mop", p.get("mop_kpa")),
-    ):
-        res, val = rv50air_ui_result_for_field(field, kpa, finalize)
-        MainFrame.main_frame.up_test_ui(name=ui_name, result=res, value=val)
-    for ui_name, field, value in (
-        ("base_station_ver", "base_ver", p.get("base_ver")),
-    ):
-        res, val = rv50air_ui_result_for_string(field, value, finalize)
-        MainFrame.main_frame.up_test_ui(name=ui_name, result=res, value=val)
-    res, val = rv50air_ui_result_for_config_readback(p.get("base_config"), finalize)
-    MainFrame.main_frame.up_test_ui(name="base_station_config", result=res, value=val)
-
-
-def rv50air_refresh_test_ui_callafter(p, finalize=False):
-    wx.CallAfter(_rv50air_refresh_test_ui_impl, p, finalize)
-
-
-def rv50air_add_string_report(name, field, value):
-    rv50_base_add_string_report(name, field, value)
-
-
-def rv50air_add_reports(p):
-    if p is None:
-        mes_run.add_report(name="清水通路气压", result="NG", value="无数据")
-        mes_run.add_report(name="污水通路气压", result="NG", value="无数据")
-        mes_run.add_report(name="拖布通路气压", result="NG", value="无数据")
-        mes_run.add_report(name="基站版本", result="NG", value="无数据")
-        rv50_base_add_string_report("基站配置码", "base_config", None)
-        return
-    mes_run.add_report(
-        name="清水通路气压",
-        result="OK" if rv50air_field_in_range("clear", p.get("clear_kpa")) else "NG",
-        value=rv50air_fmt_kpa(p.get("clear_kpa")),
-        val_min=load_cfg.rv50air_clear_kpa_min,
-        val_max=load_cfg.rv50air_clear_kpa_max,
-    )
-    mes_run.add_report(
-        name="污水通路气压",
-        result="OK" if rv50air_field_in_range("duty", p.get("duty_kpa")) else "NG",
-        value=rv50air_fmt_kpa(p.get("duty_kpa")),
-        val_min=load_cfg.rv50air_duty_kpa_min,
-        val_max=load_cfg.rv50air_duty_kpa_max,
-    )
-    mes_run.add_report(
-        name="拖布通路气压",
-        result="OK" if rv50air_field_in_range("mop", p.get("mop_kpa")) else "NG",
-        value=rv50air_fmt_kpa(p.get("mop_kpa")),
-        val_min=load_cfg.rv50air_mop_kpa_min,
-        val_max=load_cfg.rv50air_mop_kpa_max,
-    )
-    rv50air_add_string_report("基站版本", "base_ver", p.get("base_ver"))
-    rv50_base_add_string_report("基站配置码", "base_config", p.get("base_config") if p else None)
 
 
 def rv50air_finalize_88(dev, dat):

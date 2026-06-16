@@ -74,9 +74,8 @@ rv30_led_expected: 0x03       # LED 状态期望值（单字节）
 # §017  device_type=017  RV50 基站全功能测试
 # -----------------------------------------------------------------------------
 # #[RV50-017-PROTO] 0x77 数据区 38 字节，帧长字段 0x26；0x88：03=治具正常结束；04=基站通讯失败
-# dat[13..15] 基站配置码（XX.XX.XX 十六进制）；与公共 base_station_config_expected 比对，不配则跳过
-# 过程 0x77 实时判据失败即发 0x89 并上报 MES NG（仅一次）；0x88 不回 0x89
-# 某项上下限均为 0 表示不参与比较；集尘配置为 kPa，治具帧内为 10Pa 计数
+# 某项 min/max 均为 0 或 expected 为 0 → 不参与比较、不显示 UI、不上报 MES
+# MCU 版本用公共 mcu_version；配置码用 base_station_config_expected（可选，公共区）
 
 rv50_charge_min: 200          # 充电电流下限（mA）
 rv50_charge_max: 3000         # 充电电流上限（mA）
@@ -85,9 +84,10 @@ rv50_ir_l: 0x44               # 左红外回充码期望值（16 进制）
 rv50_ir_r: 0x42               # 右红外回充码期望值（16 进制）
 rv50_ir_n: 0x48               # 近卫红外回充码期望值（16 进制）
 
-rv50_clear_tank_expected: 0x03 # 清水箱在位状态期望值（单字节）
-rv50_duty_tank_expected: 0x03 # 污水箱在位状态期望值（单字节）
-rv50_clean_base_expected: 0x03 # 清洁底座在位状态期望值（单字节）
+rv50_clear_tank_expected: 0x03 # 清水箱在位状态期望值（单字节；0=不测）
+rv50_duty_tank_expected: 0x03 # 污水箱在位状态期望值（单字节；0=不测）
+rv50_dust_expected: 0x03       # 尘袋在位状态期望值（单字节；0=不测）
+rv50_clean_base_expected: 0x03 # 清洁底座在位状态期望值（单字节；0=不测）
 
 rv50_suction_kpa_min: 17      # 集尘吸力下限（kPa，含端点）
 rv50_suction_kpa_max: 30      # 集尘吸力上限（kPa，含端点）
@@ -152,9 +152,9 @@ rv50pcba_blower_freq_max: 150     # 鼓风机频率上限（Hz 或协议计数�
 # §015  device_type=015  RV50 基站过气测试
 # -----------------------------------------------------------------------------
 # #[RV50-015-AIR-PROTO] 0x77 数据区 13 字节：step+三路气压+基站版本+配置回读(dat[10..12])
-# 气压为 10Pa 计数；下列阈值为 kPa（含端点），比较前 raw×0.01
-# 基站版本见公共 mcu_version；配置码经 0x57 下发，0x77 回读与 base_station_config_expected 终判比对（不配则仅显示回读）
-# 0x88：03=治具正常结束（再判全部测试项）；04=治具与基站通讯失败；PC 不发 0x89
+# 气压为 10Pa 计数；下列阈值为 kPa（含端点），min/max 均为 0.0 → 不测
+# 基站版本见公共 mcu_version；配置码经 0x57 下发（须保留有效 base_station_config_expected）
+# 0x88：03=治具正常结束（再判 enabled 项）；04=治具与基站通讯失败；PC 不发 0x89
 
 rv50air_clear_kpa_min: 20     # 清水通路气压下限（kPa，含端点）
 rv50air_clear_kpa_max: 80     # 清水通路气压上限（kPa，含端点）
@@ -243,16 +243,15 @@ ominiwater_base_hot_temp_max: 130000      # 基站热水温度 ADC 上限
 # §016  device_type=016  RV50 基站过水测试
 # -----------------------------------------------------------------------------
 # #[RV50-016-WATER-PROTO] 0x77 数据区 22 字节：原 16 字节 + dat[16..18]基站版本 + dat[19..21]基站配置码
-# 四路水量 u16 分别等于各自期望值（始终参与终判）；清洁剂液位单字节==期望值；温度为 ADC（含端点）
-# 旧键 rv50water_volume_expected 仍可读入，四路未单独配置时均回退为该值
-# 基站版本/配置码阈值见公共 mcu_version、base_station_config_expected
-# 0x88：03=治具正常结束（再判全项）；04=治具与基站通讯失败；PC 不发 0x89
+# 水量/液位 expected 为 -1 或不配 → 不参与比较、不显示 UI、不上报 MES；温度 min/max 均为 0 → 不测
+# 基站版本见公共 mcu_version；配置码见 base_station_config_expected（022/016 可注释跳过比对）
+# 0x88：03=治具正常结束（再判 enabled 项）；04=治具与基站通讯失败；PC 不发 0x89
 
-rv50water_clear_volume_expected: 3        # 清水通路水量期望值（u16，始终必测）
-rv50water_duty_volume_expected: 3         # 污水通路水量期望值（u16，始终必测）
-rv50water_left_mop_volume_expected: 3     # 左拖布水量期望值（u16，始终必测）
-rv50water_right_mop_volume_expected: 3    # 右拖布水量期望值（u16，始终必测）
-rv50water_cleaner_level_expected: 3       # 清洁剂液位期望值（单字节）
+rv50water_clear_volume_expected: 3        # 清水通路水量期望值（u16；-1=不测）
+rv50water_duty_volume_expected: 3         # 污水通路水量期望值（u16；-1=不测）
+rv50water_left_mop_volume_expected: 3     # 左拖布水量期望值（u16；-1=不测）
+rv50water_right_mop_volume_expected: 3    # 右拖布水量期望值（u16；-1=不测）
+rv50water_cleaner_level_expected: 3       # 清洁剂液位期望值（单字节；-1=不测）
 rv50water_left_mop_temp_min: 800           # 左拖布温度 ADC 下限（含端点）
 rv50water_left_mop_temp_max: 1800          # 左拖布温度 ADC 上限（含端点）
 rv50water_right_mop_temp_min: 800          # 右拖布温度 ADC 下限（含端点）

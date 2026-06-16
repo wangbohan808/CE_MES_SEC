@@ -357,20 +357,20 @@ class MainFrame(wx.Frame):
         # [up_test_ui_WBH] RV30 基站成品使用专用测试项列表
         if int(test.load_cfg.dev) == 50:
             item_temp = rv30_item_result
-        elif int(test.load_cfg.dev) == 17:
-            item_temp = rv50_item_result
+        elif int(test.load_cfg.dev) == 17:  # #[RV50-017-PROTO] 按 config 动态生成测试格
+            item_temp = test.rv50_build_item_result()
         elif int(test.load_cfg.dev) == 18:
             item_temp = rv50pcba_item_result
-        elif int(test.load_cfg.dev) == 15:
-            item_temp = rv50air_item_result
+        elif int(test.load_cfg.dev) == 15:  # #[RV50-015-AIR-PROTO] 按 config 动态生成测试格
+            item_temp = test.rv50air_build_item_result()
         elif int(test.load_cfg.dev) == 21:  # #[OMINIAIR-021-PROTO] 按 config 动态生成测试格
             item_temp = test.ominiair_build_item_result()
         elif int(test.load_cfg.dev) == 20:  # #[OMINI-020-PROTO] 按 config 动态生成测试格
             item_temp = test.omini_build_item_result()
         elif int(test.load_cfg.dev) == 22:  # #[OMINIWATER-022-PROTO] 按 config 动态生成测试格
             item_temp = test.ominiwater_build_item_result()
-        elif int(test.load_cfg.dev) == 16:
-            item_temp = rv50water_item_result
+        elif int(test.load_cfg.dev) == 16:  # #[RV50-016-WATER-PROTO] 按 config 动态生成测试格
+            item_temp = test.rv50water_build_item_result()
 
         if not test.base_station_config_ui_enabled():
             item_temp = [x for x in item_temp if "base_station_config" not in x]
