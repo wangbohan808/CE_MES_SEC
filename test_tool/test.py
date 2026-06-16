@@ -124,7 +124,10 @@ class LoadCfg:
     ominiwater_base_hot_temp_min: int = 0
     ominiwater_base_hot_temp_max: int = 0
     # #[RV50-016-WATER-PROTO] device_type=016 基站过水（帧 dev=0x10）
-    rv50water_volume_expected: int = 3
+    rv50water_clear_volume_expected: int = 3
+    rv50water_duty_volume_expected: int = 3
+    rv50water_left_mop_volume_expected: int = 3
+    rv50water_right_mop_volume_expected: int = 3
     rv50water_cleaner_level_expected: int = 3
     rv50water_left_mop_temp_min: int = 800
     rv50water_left_mop_temp_max: int = 1800
@@ -1243,9 +1246,17 @@ def load_config():
                    getattr(load_cfg, "ominiwater_base_hot_temp_max", 0)))
 
     # #[RV50-016-WATER-PROTO] 过水判据（水量/液位为 u16 或单字节期望值；温度为 ADC 含端点）
-    load_cfg.rv50water_volume_expected = int(
-        config.get("rv50water_volume_expected",
-                   getattr(load_cfg, "rv50water_volume_expected", 3)))
+    _rv50water_legacy_vol = config.get("rv50water_volume_expected")
+    _rv50water_vol_fb = (int(_rv50water_legacy_vol) if _rv50water_legacy_vol is not None
+                         else 3)
+    load_cfg.rv50water_clear_volume_expected = int(
+        config.get("rv50water_clear_volume_expected", _rv50water_vol_fb))
+    load_cfg.rv50water_duty_volume_expected = int(
+        config.get("rv50water_duty_volume_expected", _rv50water_vol_fb))
+    load_cfg.rv50water_left_mop_volume_expected = int(
+        config.get("rv50water_left_mop_volume_expected", _rv50water_vol_fb))
+    load_cfg.rv50water_right_mop_volume_expected = int(
+        config.get("rv50water_right_mop_volume_expected", _rv50water_vol_fb))
     load_cfg.rv50water_cleaner_level_expected = int(
         config.get("rv50water_cleaner_level_expected",
                    getattr(load_cfg, "rv50water_cleaner_level_expected", 3)))
@@ -5604,8 +5615,20 @@ def rv50water_parse_77(dat):
     }
 
 
-def rv50water_volume_ok(val):
-    return int(val) == int(load_cfg.rv50water_volume_expected)
+_RV50WATER_VOLUME_EXPECT_ATTR = {
+    "clear_vol": "rv50water_clear_volume_expected",
+    "duty_vol": "rv50water_duty_volume_expected",
+    "left_mop_vol": "rv50water_left_mop_volume_expected",
+    "right_mop_vol": "rv50water_right_mop_volume_expected",
+}
+
+
+def rv50water_volume_expected(field):
+    return int(getattr(load_cfg, _RV50WATER_VOLUME_EXPECT_ATTR[field]))
+
+
+def rv50water_volume_ok(field, val):
+    return int(val) == rv50water_volume_expected(field)
 
 
 def rv50water_cleaner_level_ok(val):
@@ -5633,13 +5656,13 @@ def rv50water_field_ok(field, p):
     if p is None:
         return False
     if field == "clear_vol":
-        return rv50water_volume_ok(p.get("clear_water_volume"))
+        return rv50water_volume_ok("clear_vol", p.get("clear_water_volume"))
     if field == "duty_vol":
-        return rv50water_volume_ok(p.get("duty_water_volume"))
+        return rv50water_volume_ok("duty_vol", p.get("duty_water_volume"))
     if field == "left_mop_vol":
-        return rv50water_volume_ok(p.get("left_mop_water_volume"))
+        return rv50water_volume_ok("left_mop_vol", p.get("left_mop_water_volume"))
     if field == "right_mop_vol":
-        return rv50water_volume_ok(p.get("right_mop_water_volume"))
+        return rv50water_volume_ok("right_mop_vol", p.get("right_mop_water_volume"))
     if field == "left_mop_temp":
         return rv50water_temp_in_range("left_mop", p.get("left_mop_temperature"))
     if field == "right_mop_temp":
@@ -5752,7 +5775,6 @@ def rv50water_refresh_test_ui_callafter(p, finalize=False):
 
 
 def rv50water_add_reports(p):
-    exp_vol = load_cfg.rv50water_volume_expected
     exp_lvl = load_cfg.rv50water_cleaner_level_expected
     if p is None:
         mes_run.add_report(name="清水通路过水", result="NG", value="无数据")
@@ -5766,34 +5788,20 @@ def rv50water_add_reports(p):
         mes_run.add_report(name="基站版本", result="NG", value="无数据")
         mes_run.add_report(name="基站配置码", result="NG", value="无数据")
         return
-    mes_run.add_report(
-        name="清水通路过水",
-        result="OK" if rv50water_field_ok("clear_vol", p) else "NG",
-        value=str(p.get("clear_water_volume")),
-        val_min=exp_vol,
-        val_max=exp_vol,
-    )
-    mes_run.add_report(
-        name="污水通路过水",
-        result="OK" if rv50water_field_ok("duty_vol", p) else "NG",
-        value=str(p.get("duty_water_volume")),
-        val_min=exp_vol,
-        val_max=exp_vol,
-    )
-    mes_run.add_report(
-        name="左拖布过水",
-        result="OK" if rv50water_field_ok("left_mop_vol", p) else "NG",
-        value=str(p.get("left_mop_water_volume")),
-        val_min=exp_vol,
-        val_max=exp_vol,
-    )
-    mes_run.add_report(
-        name="右拖布过水",
-        result="OK" if rv50water_field_ok("right_mop_vol", p) else "NG",
-        value=str(p.get("right_mop_water_volume")),
-        val_min=exp_vol,
-        val_max=exp_vol,
-    )
+    for mes_name, vol_field, parse_key in (
+        ("清水通路过水", "clear_vol", "clear_water_volume"),
+        ("污水通路过水", "duty_vol", "duty_water_volume"),
+        ("左拖布过水", "left_mop_vol", "left_mop_water_volume"),
+        ("右拖布过水", "right_mop_vol", "right_mop_water_volume"),
+    ):
+        exp_vol = rv50water_volume_expected(vol_field)
+        mes_run.add_report(
+            name=mes_name,
+            result="OK" if rv50water_field_ok(vol_field, p) else "NG",
+            value=str(p.get(parse_key)),
+            val_min=exp_vol,
+            val_max=exp_vol,
+        )
     mes_run.add_report(
         name="左拖布温度adc",
         result="OK" if rv50water_field_ok("left_mop_temp", p) else "NG",

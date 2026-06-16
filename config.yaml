@@ -7,13 +7,13 @@
 # -----------------------------------------------------------------------------
 # 公共配置（所有工位）
 # -----------------------------------------------------------------------------
-device_type: "020"          # 当前工位，完整列表见文末「device_type 索引」
-project_name: "Omini"         # 窗口标题前缀（如 HW1、RV50、C10B）
-use_mes: "2"                # MES：1=海能+安克  2=仅海能  3=仅安克
-user_com: ""                # 串口 COMx；留空则自动识别（需唯一可用口）
-mcu_version: "005.001.030"  # 基站/MCU 版本；RV50/Omini 015~022 共用
-base_station_config_expected: "FF.FF.FF"  # 加载时规范为 XX.XX.XX（十六进制）；015/021 经 0x57 下发；016/017/020/022 与 0x77 读回比对，不配则跳过
-show_base_station_config_ui: 0           # 0=不显示「基站配置码」测试格，并且配置码配置为"FF.FF.FF"  1=显示（各工位原有显示规则不变）
+device_type: "022"          # 当前工位编号（三位字符串），完整列表见下方索引
+project_name: "Omini"       # 窗口标题前缀（如 HW1、RV50、Omini）
+use_mes: "2"                # MES 上报：1=海能+安克  2=仅海能  3=仅安克
+user_com: ""                # 串口 COM 号（如 COM3）；留空则自动识别（需唯一可用口）
+mcu_version: "005.001.030"  # 基站/MCU 版本期望值（NNN.NNN.NNN）；015/021 经 0x57 下发，016/017/020/022 与 0x77 回读比对
+base_station_config_expected: "FF.FF.FF"  # 基站配置码期望值（十六进制 XX.XX.XX）；不配或 FF.FF.FF 则跳过比对
+show_base_station_config_ui: 0           # 是否在测试格显示「基站配置码」：0=不显示  1=显示
 # test_tool: "治具未编码"   # 治具名称/编码（海能 MES，可选）
 
 # -----------------------------------------------------------------------------
@@ -54,26 +54,21 @@ show_base_station_config_ui: 0           # 0=不显示「基站配置码」测�
 # 治具发 0x68 后可覆盖下列运行时阈值（见 test.py rv30_proto_parse_68_dat）。
 # 调优：test.py rv30_proto_yaml_realtime_ok / rv30_proto_yaml_finalize_ok
 
-# 充电电流上下限
-rv30_charge_min: 100
-rv30_charge_max: 200
+rv30_charge_min: 100         # 充电电流下限（治具 0x77 原始计数）
+rv30_charge_max: 200         # 充电电流上限（治具 0x77 原始计数）
 
-# 集尘吸力上下限（kPa，含端点）；治具 0x77/0x68 仍为 10Pa 计数（kPa×100，如 10→1000）
-rv30_suction_kpa_min: 10
-rv30_suction_kpa_max: 30
+rv30_suction_kpa_min: 10      # 集尘吸力下限（kPa，含端点；治具帧内为 kPa×100）
+rv30_suction_kpa_max: 30      # 集尘吸力上限（kPa，含端点）
 
-# 过零频率期望值（0=不参与比较）
-rv30_freq_expected: 0x32
+rv30_freq_expected: 0x32      # 过零频率期望值（16 进制；0=不参与比较）
 
-# 红外回充码期望值（16 进制，与 UI/MES 显示一致）
-rv30_ir_l: 0x50
-rv30_ir_lc: 0x44
-rv30_ir_rc: 0x42
-rv30_ir_r: 0x48
+rv30_ir_l: 0x50               # 左红外回充码期望值（16 进制）
+rv30_ir_lc: 0x44              # 左中红外回充码期望值（16 进制）
+rv30_ir_rc: 0x42              # 右中红外回充码期望值（16 进制）
+rv30_ir_r: 0x48               # 右红外回充码期望值（16 进制）
 
-# 尘袋 / LED 期望状态
-rv30_dust_bag_expected: 0x03
-rv30_led_expected: 0x03
+rv30_dust_bag_expected: 0x03  # 尘袋在位状态期望值（单字节）
+rv30_led_expected: 0x03       # LED 状态期望值（单字节）
 
 # -----------------------------------------------------------------------------
 # §017  device_type=017  RV50 基站全功能测试
@@ -83,37 +78,37 @@ rv30_led_expected: 0x03
 # 过程 0x77 实时判据失败即发 0x89 并上报 MES NG（仅一次）；0x88 不回 0x89
 # 某项上下限均为 0 表示不参与比较；集尘配置为 kPa，治具帧内为 10Pa 计数
 
-rv50_charge_min: 200
-rv50_charge_max: 3000
+rv50_charge_min: 200          # 充电电流下限（mA）
+rv50_charge_max: 3000         # 充电电流上限（mA）
 
-rv50_ir_l: 0x44
-rv50_ir_r: 0x42
-rv50_ir_n: 0x48
+rv50_ir_l: 0x44               # 左红外回充码期望值（16 进制）
+rv50_ir_r: 0x42               # 右红外回充码期望值（16 进制）
+rv50_ir_n: 0x48               # 近卫红外回充码期望值（16 进制）
 
-rv50_clear_tank_expected: 0x03
-rv50_duty_tank_expected: 0x03
-rv50_clean_base_expected: 0x03
+rv50_clear_tank_expected: 0x03 # 清水箱在位状态期望值（单字节）
+rv50_duty_tank_expected: 0x03 # 污水箱在位状态期望值（单字节）
+rv50_clean_base_expected: 0x03 # 清洁底座在位状态期望值（单字节）
 
-rv50_suction_kpa_min: 17
-rv50_suction_kpa_max: 30
+rv50_suction_kpa_min: 17      # 集尘吸力下限（kPa，含端点）
+rv50_suction_kpa_max: 30      # 集尘吸力上限（kPa，含端点）
 
-rv50_clean_pump_min: 50
-rv50_clean_pump_max: 350
-rv50_vacuum_pump_min: 50
-rv50_vacuum_pump_max: 200
-rv50_base_level_up_min: 3000
-rv50_base_level_up_max: 4095
-rv50_base_level_down_min: 0
-rv50_base_level_down_max: 1000
-rv50_em_valve_min: 100
-rv50_em_valve_max: 500
+rv50_clean_pump_min: 50        # 清水泵电流下限（mA）
+rv50_clean_pump_max: 350       # 清水泵电流上限（mA）
+rv50_vacuum_pump_min: 50      # 真空泵电流下限（mA）
+rv50_vacuum_pump_max: 200     # 真空泵电流上限（mA）
+rv50_base_level_up_min: 3000  # 底座液位（抬起）ADC 下限
+rv50_base_level_up_max: 4095  # 底座液位（抬起）ADC 上限
+rv50_base_level_down_min: 0   # 底座液位（按下）ADC 下限
+rv50_base_level_down_max: 1000 # 底座液位（按下）ADC 上限
+rv50_em_valve_min: 100        # 电磁三通电流下限（mA）
+rv50_em_valve_max: 500        # 电磁三通电流上限（mA）
 
-rv50_wash_pump_min: 50
-rv50_wash_pump_max: 350
-rv50_turbidity_min: 5000
-rv50_turbidity_max: 15000
-rv50_hot_diff_min: 20
-rv50_hot_diff_max: 250
+rv50_wash_pump_min: 50         # 清洁泵电流下限（mA）
+rv50_wash_pump_max: 350       # 清洁泵电流上限（mA）
+rv50_turbidity_min: 5000      # 浊度数据下限（ADC）
+rv50_turbidity_max: 15000     # 浊度数据上限（ADC）
+rv50_hot_diff_min: 20         # 热风温差下限（℃ 或协议计数）
+rv50_hot_diff_max: 250        # 热风温差上限（℃ 或协议计数）
 
 # -----------------------------------------------------------------------------
 # §018  device_type=018  RV50 基站 PCBA 测试
@@ -122,36 +117,36 @@ rv50_hot_diff_max: 250
 # 过程 0x77 实时判据失败发 0x89 0x02 并上报 MES NG（仅一次）；0x88 正常结束不回 0x89
 # step1 仅占位；charge 在 step5 判据；某项上下限均为 0 表示不参与比较
 
-rv50pcba_ir_l: 0x44
-rv50pcba_ir_r: 0x42
-rv50pcba_ir_n: 0x48
+rv50pcba_ir_l: 0x44          # 左红外回充码期望值（16 进制）
+rv50pcba_ir_r: 0x42          # 右红外回充码期望值（16 进制）
+rv50pcba_ir_n: 0x48          # 近卫红外回充码期望值（16 进制）
 
-rv50pcba_clear_tank_expected: 0x03
-rv50pcba_duty_tank_expected: 0x03
-rv50pcba_dust_expected: 0x03
-rv50pcba_clean_base_expected: 0x03
+rv50pcba_clear_tank_expected: 0x03  # 清水箱在位状态期望值（单字节）
+rv50pcba_duty_tank_expected: 0x03  # 污水箱在位状态期望值（单字节）
+rv50pcba_dust_expected: 0x03       # 尘袋在位状态期望值（单字节）
+rv50pcba_clean_base_expected: 0x03 # 清洁底座在位状态期望值（单字节）
 
-rv50pcba_clean_pump_min: 50
-rv50pcba_clean_pump_max: 350
-rv50pcba_vacuum_pump_min: 3000
-rv50pcba_vacuum_pump_max: 4095
-rv50pcba_base_level_up_min: 0
-rv50pcba_base_level_up_max: 4095
-rv50pcba_base_level_down_min: 0
-rv50pcba_base_level_down_max: 1000
-rv50pcba_em_valve_min: 100
-rv50pcba_em_valve_max: 500
+rv50pcba_clean_pump_min: 50        # 清水泵电流下限（mA）
+rv50pcba_clean_pump_max: 350      # 清水泵电流上限（mA）
+rv50pcba_vacuum_pump_min: 3000    # 真空泵电流下限（mA）
+rv50pcba_vacuum_pump_max: 4095   # 真空泵电流上限（mA）
+rv50pcba_base_level_up_min: 0     # 底座液位（抬起）ADC 下限
+rv50pcba_base_level_up_max: 4095  # 底座液位（抬起）ADC 上限
+rv50pcba_base_level_down_min: 0   # 底座液位（按下）ADC 下限
+rv50pcba_base_level_down_max: 1000 # 底座液位（按下）ADC 上限
+rv50pcba_em_valve_min: 100        # 电磁三通电流下限（mA）
+rv50pcba_em_valve_max: 500        # 电磁三通电流上限（mA）
 
-rv50pcba_wash_pump_min: 50
-rv50pcba_wash_pump_max: 350
-rv50pcba_turbidity_min: 5000
-rv50pcba_turbidity_max: 15000
-rv50pcba_hot_diff_min: 20
-rv50pcba_hot_diff_max: 250
-rv50pcba_charge_min: 200
-rv50pcba_charge_max: 3000
-rv50pcba_blower_freq_min: 110
-rv50pcba_blower_freq_max: 150
+rv50pcba_wash_pump_min: 50         # 清洁泵电流下限（mA）
+rv50pcba_wash_pump_max: 350       # 清洁泵电流上限（mA）
+rv50pcba_turbidity_min: 5000      # 浊度数据下限（ADC）
+rv50pcba_turbidity_max: 15000     # 浊度数据上限（ADC）
+rv50pcba_hot_diff_min: 20         # 热风温差下限
+rv50pcba_hot_diff_max: 250        # 热风温差上限
+rv50pcba_charge_min: 200          # 充电电流下限（mA，step5 判据）
+rv50pcba_charge_max: 3000         # 充电电流上限（mA，step5 判据）
+rv50pcba_blower_freq_min: 110     # 鼓风机频率下限（Hz 或协议计数）
+rv50pcba_blower_freq_max: 150     # 鼓风机频率上限（Hz 或协议计数）
 
 # -----------------------------------------------------------------------------
 # §015  device_type=015  RV50 基站过气测试
@@ -161,12 +156,12 @@ rv50pcba_blower_freq_max: 150
 # 基站版本见公共 mcu_version；配置码经 0x57 下发，0x77 回读与 base_station_config_expected 终判比对（不配则仅显示回读）
 # 0x88：03=治具正常结束（再判全部测试项）；04=治具与基站通讯失败；PC 不发 0x89
 
-rv50air_clear_kpa_min: 20
-rv50air_clear_kpa_max: 80
-rv50air_mop_kpa_min: 20
-rv50air_mop_kpa_max: 230
-rv50air_duty_kpa_min: -30
-rv50air_duty_kpa_max: -18
+rv50air_clear_kpa_min: 20     # 清水通路气压下限（kPa，含端点）
+rv50air_clear_kpa_max: 80     # 清水通路气压上限（kPa，含端点）
+rv50air_mop_kpa_min: 20      # 拖布通路气压下限（kPa，含端点）
+rv50air_mop_kpa_max: 230     # 拖布通路气压上限（kPa，含端点）
+rv50air_duty_kpa_min: -30    # 污水通路气压下限（kPa，含端点，可为负）
+rv50air_duty_kpa_max: -18    # 污水通路气压上限（kPa，含端点，可为负）
 
 # -----------------------------------------------------------------------------
 # §020  device_type=020  Omini 基站全功能测试
@@ -176,33 +171,33 @@ rv50air_duty_kpa_max: -18
 # MCU 版本用公共 mcu_version；配置码用 base_station_config_expected（可选，公共区）
 # 过程实时阈值 NG 发 0x89[0x03]（step=4 除外）；扫码门闸失败 0x58+0x89，不上报 MES
 
-omini_charge_min: 200
-omini_charge_max: 3000
-omini_ir_l: 0x44
-omini_ir_r: 0x42
-omini_ir_n: 0x48
-omini_clear_tank_expected: 0x03
-omini_duty_tank_expected: 0x03
-omini_dust_expected: 0x03
-omini_clean_base_expected: 0x03
-omini_suction_kpa_min: 17
-omini_suction_kpa_max: 30
-# omini_clean_pump_min: 
-# omini_clean_pump_max: 
-omini_vacuum_pump_min: 50
-omini_vacuum_pump_max: 200
-omini_base_level_up_min: 3000
-omini_base_level_up_max: 4095
-omini_base_level_down_min: 0
-omini_base_level_down_max: 1000
-omini_em_valve_min: 100
-omini_em_valve_max: 500
-omini_wash_pump_min: 50
-omini_wash_pump_max: 350
-# omini_turbidity_min: 
-# omini_turbidity_max: 
-omini_hot_diff_min: 20
-omini_hot_diff_max: 250
+omini_charge_min: 200         # 充电电流下限（mA）
+omini_charge_max: 3000        # 充电电流上限（mA）
+omini_ir_l: 0x44              # 左红外回充码期望值（16 进制）
+omini_ir_r: 0x42              # 右红外回充码期望值（16 进制）
+omini_ir_n: 0x48              # 近卫红外回充码期望值（16 进制）
+omini_clear_tank_expected: 0x03 # 清水箱在位状态期望值（单字节；0=不测）
+omini_duty_tank_expected: 0x03  # 污水箱在位状态期望值（单字节；0=不测）
+omini_dust_expected: 0x03       # 尘袋在位状态期望值（单字节；0=不测）
+omini_clean_base_expected: 0x03 # 清洁底座在位状态期望值（单字节；0=不测）
+omini_suction_kpa_min: 17      # 集尘吸力下限（kPa；min/max 均为 0 则不测）
+omini_suction_kpa_max: 30      # 集尘吸力上限（kPa）
+# omini_clean_pump_min: 50     # 清水泵电流下限（mA；注释掉=使用代码默认或不测）
+# omini_clean_pump_max: 350    # 清水泵电流上限（mA）
+omini_vacuum_pump_min: 50      # 真空泵电流下限（mA）
+omini_vacuum_pump_max: 200     # 真空泵电流上限（mA）
+omini_base_level_up_min: 3000  # 底座液位（抬起）ADC 下限
+omini_base_level_up_max: 4095  # 底座液位（抬起）ADC 上限
+omini_base_level_down_min: 0   # 底座液位（按下）ADC 下限
+omini_base_level_down_max: 1000 # 底座液位（按下）ADC 上限
+omini_em_valve_min: 100        # 电磁三通电流下限（mA）
+omini_em_valve_max: 500        # 电磁三通电流上限（mA）
+omini_wash_pump_min: 50         # 清洁泵电流下限（mA）
+omini_wash_pump_max: 350       # 清洁泵电流上限（mA）
+# omini_turbidity_min: 5000     # 浊度数据下限（ADC）
+# omini_turbidity_max: 15000    # 浊度数据上限（ADC）
+omini_hot_diff_min: 20         # 热风温差下限
+omini_hot_diff_max: 250        # 热风温差上限
 # base_station_config_expected 见公共区；不配则不比对
 
 # -----------------------------------------------------------------------------
@@ -214,12 +209,12 @@ omini_hot_diff_max: 250
 # 基站版本见公共 mcu_version；配置码经 0x57 下发，0x77 回读终判比对（测试格始终显示回读；不配期望则不着色）
 # 0x88：03=治具正常结束（须到过 step3 再判 enabled 项）；04=基站通讯失败；PC 不发 0x89
 
-ominiair_clear_kpa_min: 20
-ominiair_clear_kpa_max: 80
-ominiair_mop_kpa_min: 20
-ominiair_mop_kpa_max: 230
-ominiair_duty_kpa_min: -30
-ominiair_duty_kpa_max: -18
+ominiair_clear_kpa_min: 20    # 清水通路气压下限（kPa；min/max 均为 0 则不测）
+ominiair_clear_kpa_max: 80    # 清水通路气压上限（kPa）
+ominiair_mop_kpa_min: 20      # 拖布通路气压下限（kPa）
+ominiair_mop_kpa_max: 230     # 拖布通路气压上限（kPa）
+ominiair_duty_kpa_min: -30    # 污水通路气压下限（kPa，可为负）
+ominiair_duty_kpa_max: -18    # 污水通路气压上限（kPa，可为负）
 # base_station_config_expected 见公共区
 
 # -----------------------------------------------------------------------------
@@ -231,35 +226,39 @@ ominiair_duty_kpa_max: -18
 # 基站版本/配置码见公共 mcu_version、base_station_config_expected
 # 0x88：03=治具正常结束（须到过 step3 再判 enabled 项）；04=基站通讯失败；PC 不发 0x89
 
-ominiwater_clear_volume_expected: 3
-ominiwater_duty_volume_expected: 3
-ominiwater_left_mop_volume_expected: 3
-ominiwater_right_mop_volume_expected: 3
-# ominiwater_cleaner_level_expected: 
-ominiwater_left_mop_temp_min: 800
-ominiwater_left_mop_temp_max: 1800
-ominiwater_right_mop_temp_min: 800
-ominiwater_right_mop_temp_max: 1800
-# ominiwater_base_hot_temp_min: 
-# ominiwater_base_hot_temp_max: 
+ominiwater_clear_volume_expected: 3       # 清水通路水量期望值（u16；-1=不测）
+ominiwater_duty_volume_expected: 3        # 污水通路水量期望值（u16；-1=不测）
+ominiwater_left_mop_volume_expected: 3    # 左拖布水量期望值（u16；-1=不测）
+ominiwater_right_mop_volume_expected: 3   # 右拖布水量期望值（u16；-1=不测）
+ominiwater_cleaner_level_expected: 3      # 清洁剂液位期望值（单字节；-1=不测）
+ominiwater_left_mop_temp_min: 800         # 左拖布温度 ADC 下限（min/max 均为 0 则不测）
+ominiwater_left_mop_temp_max: 1800        # 左拖布温度 ADC 上限
+ominiwater_right_mop_temp_min: 800        # 右拖布温度 ADC 下限
+ominiwater_right_mop_temp_max: 1800       # 右拖布温度 ADC 上限
+ominiwater_base_hot_temp_min: 600         # 基站热水温度 ADC 下限
+ominiwater_base_hot_temp_max: 130000      # 基站热水温度 ADC 上限
 # base_station_config_expected 见公共区
 
 # -----------------------------------------------------------------------------
 # §016  device_type=016  RV50 基站过水测试
 # -----------------------------------------------------------------------------
 # #[RV50-016-WATER-PROTO] 0x77 数据区 22 字节：原 16 字节 + dat[16..18]基站版本 + dat[19..21]基站配置码
-# 四路水量 u16==期望值；清洁剂液位单字节==期望值；温度为 ADC（含端点）
+# 四路水量 u16 分别等于各自期望值（始终参与终判）；清洁剂液位单字节==期望值；温度为 ADC（含端点）
+# 旧键 rv50water_volume_expected 仍可读入，四路未单独配置时均回退为该值
 # 基站版本/配置码阈值见公共 mcu_version、base_station_config_expected
 # 0x88：03=治具正常结束（再判全项）；04=治具与基站通讯失败；PC 不发 0x89
 
-rv50water_volume_expected: 3
-rv50water_cleaner_level_expected: 3
-rv50water_left_mop_temp_min: 800
-rv50water_left_mop_temp_max: 1800
-rv50water_right_mop_temp_min: 800
-rv50water_right_mop_temp_max: 1800
-rv50water_base_hot_temp_min: 600
-rv50water_base_hot_temp_max: 130000
+rv50water_clear_volume_expected: 3        # 清水通路水量期望值（u16，始终必测）
+rv50water_duty_volume_expected: 3         # 污水通路水量期望值（u16，始终必测）
+rv50water_left_mop_volume_expected: 3     # 左拖布水量期望值（u16，始终必测）
+rv50water_right_mop_volume_expected: 3    # 右拖布水量期望值（u16，始终必测）
+rv50water_cleaner_level_expected: 3       # 清洁剂液位期望值（单字节）
+rv50water_left_mop_temp_min: 800           # 左拖布温度 ADC 下限（含端点）
+rv50water_left_mop_temp_max: 1800          # 左拖布温度 ADC 上限（含端点）
+rv50water_right_mop_temp_min: 800          # 右拖布温度 ADC 下限（含端点）
+rv50water_right_mop_temp_max: 1800         # 右拖布温度 ADC 上限（含端点）
+rv50water_base_hot_temp_min: 600           # 基站热水温度 ADC 下限（含端点）
+rv50water_base_hot_temp_max: 1300          # 基站热水温度 ADC 上限（含端点）
 
 # -----------------------------------------------------------------------------
 # §019  device_type=019  RV50 污水箱气密性
@@ -267,26 +266,26 @@ rv50water_base_hot_temp_max: 130000
 # [WSXQMX-019] 0x88 数据首字节：03=治具正常结束（再判保压气压）；04=治具与基站通讯失败
 # [WSXQMX-019] 仅用通知区，不用测试格；保压结束帧气压判据（kPa，含端点）
 
-wsxqmx_hold_kpa_min: -20
-wsxqmx_hold_kpa_max: -17
+wsxqmx_hold_kpa_min: -20     # 保压结束气压下限（kPa，含端点，可为负）
+wsxqmx_hold_kpa_max: -17     # 保压结束气压上限（kPa，含端点，可为负）
 
 # -----------------------------------------------------------------------------
 # §106  device_type=106  称重工位
 # -----------------------------------------------------------------------------
 # [WEIGH-106] 未配置项使用 test.LoadCfg 默认值；详见 WEIGH_STATION_106_SPEC.md
 
-weight_min_kg: 6.89
-weight_max_kg: 6.93
-weight_read_delay_sec: 1
-weight_read_timeout_sec: 20
-weigh_scheme: "2"              # "1" 全程固定上下限；"2" 前 N 台直通后 μ±kσ
-weigh_pass_first_n: 5          # 方案二直通台数（代码最小 3）
-weigh_sigma_k: 2.5             # 方案二动态限系数 k：下限=μ-kσ，上限=μ+kσ（一位小数，如 2.5）
-weigh_history_json_path: "weigh_106_history_test.json"  # 方案二历史 JSON；不存在则自动创建
+weight_min_kg: 6.89          # 方案一固定重量下限（kg）
+weight_max_kg: 6.93          # 方案一固定重量上限（kg）
+weight_read_delay_sec: 1     # 扫码后延迟读秤时间（秒）
+weight_read_timeout_sec: 20  # 读秤超时时间（秒）
+weigh_scheme: "2"            # 称重方案："1"=全程固定上下限  "2"=前 N 台直通后 μ±kσ
+weigh_pass_first_n: 5       # 方案二直通台数（代码最小 3）
+weigh_sigma_k: 2.5           # 方案二动态限系数 k：下限=μ-kσ，上限=μ+kσ
+weigh_history_json_path: "weigh_106_history_test.json"  # 方案二历史记录 JSON 路径；不存在则自动创建
 
 # -----------------------------------------------------------------------------
 # §103  device_type=103  配件纸箱条码检测
 # -----------------------------------------------------------------------------
 # SN 前 7 位固定头（与扫码规则一致）
 
-parts_sn_head: "2242G06"
+parts_sn_head: "2242G06"     # 配件 SN 固定前缀（7 位，扫码须匹配）
