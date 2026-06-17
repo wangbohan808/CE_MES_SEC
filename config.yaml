@@ -7,13 +7,13 @@
 # -----------------------------------------------------------------------------
 # 公共配置（所有工位）
 # -----------------------------------------------------------------------------
-device_type: "016"          # 当前工位编号（三位字符串），完整列表见下方索引
-project_name: "RV50"       # 窗口标题前缀（如 HW1、RV50、Omini）
+device_type: "020"          # 当前工位编号（三位字符串），完整列表见下方索引
+project_name: "Omini"       # 窗口标题前缀（如 HW1、RV50、Omini）
 use_mes: "2"                # MES 上报：1=海能+安克  2=仅海能  3=仅安克
 user_com: ""                # 串口 COM 号（如 COM3）；留空则自动识别（需唯一可用口）
-mcu_version: "255.255.255"  # 【跳过】行首加 # 注释整行，或改为 "" → 不显示「MCU/基站版本」格、不参与比对、不上报 MES
-base_station_config_expected: "00.00.C1"  # 基站配置码期望值（十六进制 XX.XX.XX）
-show_base_station_config_ui: 1           # 仅控制「基站配置码」测试格是否显示：0=隐藏  1=显示（不改变是否参与判据）
+mcu_version: "005.001.013"  # 【跳过】行首加 # 注释整行，或改为 "" → 不显示「MCU/基站版本」格、不参与比对、不上报 MES
+base_station_config_expected: "FF.FF.FF"  # 基站配置码期望值（十六进制 XX.XX.XX）
+show_base_station_config_ui: 0          # 仅控制「基站配置码」测试格是否显示：0=隐藏  1=显示（不改变是否参与判据）
 # test_tool: "治具未编码"   # 治具名称/编码（海能 MES，可选）
 
 # -----------------------------------------------------------------------------
@@ -238,18 +238,18 @@ omini_dust_expected: 0x03       # 尘袋；【跳过】# 注释 或写 0
 omini_clean_base_expected: 0x03 # 清洁底座在位；【跳过】# 注释 或写 0
 omini_suction_kpa_min: 17      # 集尘吸力下限；【跳过】与 max 成对 # 或都写 0
 omini_suction_kpa_max: 30      # 集尘吸力上限；【跳过】与 min 成对 # 或都写 0
-# omini_clean_pump_min: 50     # 清水泵下限；【跳过】与 max 成对 # 或都写 0（已注释=跳过）
-# omini_clean_pump_max: 350    # 清水泵上限；【跳过】与 min 成对 # 或都写 0
+omini_clean_pump_min: 50     # 清水泵下限；【跳过】与 max 成对 # 或都写 0（已注释=跳过）
+omini_clean_pump_max: 350    # 清水泵上限；【跳过】与 min 成对 # 或都写 0
 omini_vacuum_pump_min: 50      # 真空泵下限；【跳过】与 max 成对 # 或都写 0
 omini_vacuum_pump_max: 200     # 真空泵上限；【跳过】与 min 成对 # 或都写 0
 omini_base_level_up_min: 3000  # 液位抬起下限；【跳过】与 max 成对 # 或都写 0
 omini_base_level_up_max: 4095  # 液位抬起上限；【跳过】与 min 成对 # 或都写 0
 omini_base_level_down_min: 0   # 液位按下下限；【跳过】与 max 成对 # 或都写 0
 omini_base_level_down_max: 1000 # 液位按下上限；【跳过】与 min 成对 # 或都写 0
-omini_em_valve_min: 100        # 电磁三通下限；【跳过】与 max 成对 # 或都写 0
-omini_em_valve_max: 500        # 电磁三通上限；【跳过】与 min 成对 # 或都写 0
-omini_wash_pump_min: 50         # 清洁泵下限；【跳过】与 max 成对 # 或都写 0
-omini_wash_pump_max: 350       # 清洁泵上限；【跳过】与 min 成对 # 或都写 0
+# omini_em_valve_min: 100        # 电磁三通下限；【跳过】与 max 成对 # 或都写 0
+# omini_em_valve_max: 500        # 电磁三通上限；【跳过】与 min 成对 # 或都写 0
+# omini_wash_pump_min: 50         # 清洁泵下限；【跳过】与 max 成对 # 或都写 0
+# omini_wash_pump_max: 350       # 清洁泵上限；【跳过】与 min 成对 # 或都写 0
 # omini_turbidity_min: 5000     # 浊度下限；【跳过】与 max 成对 # 或都写 0（已注释=跳过）
 # omini_turbidity_max: 15000    # 浊度上限；【跳过】与 min 成对 # 或都写 0
 omini_hot_diff_min: 20         # 热风差值下限；【跳过】与 max 成对 # 或都写 0
@@ -271,8 +271,8 @@ omini_hot_diff_max: 250        # 热风差值上限；【跳过】与 min 成对
 #   # ominiair_mop_kpa_min: 20
 #   # ominiair_mop_kpa_max: 230
 
-ominiair_clear_kpa_min: 20    # 清水通路气压下限；【跳过】与 max 成对 # 或都写 0
-ominiair_clear_kpa_max: 80    # 清水通路气压上限；【跳过】与 min 成对 # 或都写 0
+# ominiair_clear_kpa_min: 20    # 清水通路气压下限；【跳过】与 max 成对 # 或都写 0
+# ominiair_clear_kpa_max: 80    # 清水通路气压上限；【跳过】与 min 成对 # 或都写 0
 ominiair_mop_kpa_min: 20      # 拖布通路气压下限；【跳过】与 max 成对 # 或都写 0
 ominiair_mop_kpa_max: 230     # 拖布通路气压上限；【跳过】与 min 成对 # 或都写 0
 ominiair_duty_kpa_min: -30    # 污水通路气压下限；【跳过】与 max 成对 # 或都写 0
@@ -298,17 +298,17 @@ ominiair_duty_kpa_max: -18    # 污水通路气压上限；【跳过】与 min �
 # 示例 — 跳过左拖布过水：
 #   # ominiwater_left_mop_volume_expected: 3
 
-ominiwater_clear_volume_expected: 3       # 清水通路过水；【跳过】# 注释 或写 -1
+# ominiwater_clear_volume_expected: 3       # 清水通路过水；【跳过】# 注释 或写 -1
 ominiwater_duty_volume_expected: 3        # 污水通路过水；【跳过】# 注释 或写 -1
 ominiwater_left_mop_volume_expected: 3    # 左拖布过水；【跳过】# 注释 或写 -1
 ominiwater_right_mop_volume_expected: 3   # 右拖布过水；【跳过】# 注释 或写 -1
-ominiwater_cleaner_level_expected: 3      # 清洁剂液位；【跳过】# 注释 或写 -1
-ominiwater_left_mop_temp_min: 800         # 左拖布温度下限；【跳过】与 max 成对 # 或都写 0
-ominiwater_left_mop_temp_max: 1800        # 左拖布温度上限；【跳过】与 min 成对 # 或都写 0
-ominiwater_right_mop_temp_min: 800        # 右拖布温度下限；【跳过】与 max 成对 # 或都写 0
-ominiwater_right_mop_temp_max: 1800       # 右拖布温度上限；【跳过】与 min 成对 # 或都写 0
-ominiwater_base_hot_temp_min: 600         # 基站热水温度下限；【跳过】与 max 成对 # 或都写 0
-ominiwater_base_hot_temp_max: 130000      # 基站热水温度上限；【跳过】与 min 成对 # 或都写 0
+# ominiwater_cleaner_level_expected: 3      # 清洁剂液位；【跳过】# 注释 或写 -1
+# ominiwater_left_mop_temp_min: 800         # 左拖布温度下限；【跳过】与 max 成对 # 或都写 0
+# ominiwater_left_mop_temp_max: 1800        # 左拖布温度上限；【跳过】与 min 成对 # 或都写 0
+# ominiwater_right_mop_temp_min: 800        # 右拖布温度下限；【跳过】与 max 成对 # 或都写 0
+# ominiwater_right_mop_temp_max: 1800       # 右拖布温度上限；【跳过】与 min 成对 # 或都写 0
+# ominiwater_base_hot_temp_min: 600         # 基站热水温度下限；【跳过】与 max 成对 # 或都写 0
+# ominiwater_base_hot_temp_max: 130000      # 基站热水温度上限；【跳过】与 min 成对 # 或都写 0
 
 # -----------------------------------------------------------------------------
 # §016  device_type=016  RV50 基站过水测试

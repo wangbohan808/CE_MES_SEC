@@ -5992,7 +5992,7 @@ def rv50water_level_notify(level):
         msg = "清洁液在位，请取出"
         color = wx.RED
     elif lv == 0x03:
-        msg = "清洁液盒通过，请取出"
+        msg = "清洁液盒通过，请确保取出"
         color = wx.GREEN
     else:
         msg = "请注意后续操作提示"
