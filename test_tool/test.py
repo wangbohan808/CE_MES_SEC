@@ -778,6 +778,16 @@ def test_idle_work():
     global test_work_state
 
 
+def _notify_mes_pass_wait_fixture(sn=""):
+    """治具门闸型：过站成功并已回 0x57 后，提示等待治具产测帧（0x77 等）。"""
+    wx.CallAfter(
+        MainFrame.main_frame.up_notification_ui,
+        second="过站成功，等待治具发送产测命令",
+        third=sn,
+        color=wx.BLUE,
+    )
+
+
 def barcode_check_process():
     global check_sn_enable
     global check_sn_str
@@ -849,6 +859,7 @@ def barcode_check_process():
                 rv50_finalize_done = False
                 rv50_89_mes_done = False
                 rv50_realtime_ng = False
+                _notify_mes_pass_wait_fixture(sn)
             else:
                 ser_send_data(dev=17, cmd=0x58, data=str_list)
                 ser_send_data(dev=17, cmd=0x89, data=[0x03])
@@ -879,6 +890,7 @@ def barcode_check_process():
                 omini_finalize_done = False
                 omini_89_mes_done = False
                 omini_realtime_ng = False
+                _notify_mes_pass_wait_fixture(sn)
             else:
                 ser_send_data(dev=20, cmd=0x58, data=str_list)
                 ser_send_data(dev=20, cmd=0x89, data=[0x03])
@@ -906,6 +918,7 @@ def barcode_check_process():
                 rv50pcba_max_step = 0
                 rv50pcba_89_mes_done = False
                 rv50pcba_realtime_ng = False
+                _notify_mes_pass_wait_fixture(sn)
             else:
                 ser_send_data(dev=18, cmd=0x58, data=str_list)
                 rv50pcba_session_state = RV50PCBA_SESS_ABORTED
@@ -934,6 +947,7 @@ def barcode_check_process():
                 rv30_finalize_done = False
                 rv30_89_mes_done = False
                 rv30_realtime_ng = False
+                _notify_mes_pass_wait_fixture(sn)
             else:
                 ser_send_data(dev=_txd, cmd=0x58, data=str_list)
                 ser_send_data(dev=_txd, cmd=0x89, data=[0x03])
@@ -957,8 +971,7 @@ def barcode_check_process():
                 wsxqmx_session_state = WSXQMX_SESS_RUNNING
                 wsxqmx_last_step = -1
                 wsxqmx_got_step3 = False
-                wx.CallAfter(MainFrame.main_frame.up_notification_ui,
-                             second="扫码成功，等待治具测试", color=wx.BLUE)
+                _notify_mes_pass_wait_fixture(sn)
             else:
                 ser_send_data(dev=19, cmd=0x58, data=str_list)
                 wx.CallAfter(MainFrame.main_frame.up_notification_ui,
@@ -978,7 +991,8 @@ def barcode_check_process():
             res = mes_run.check_sn_is_ok(sn)
             check_sn_str = sn
             if res:
-                rv50_omini_air_on_scan_pass(int(load_cfg.dev), str_list)
+                if rv50_omini_air_on_scan_pass(int(load_cfg.dev), str_list):
+                    _notify_mes_pass_wait_fixture(sn)
             else:
                 ser_send_data(dev=int(load_cfg.dev), cmd=0x58, data=str_list)
             check_sn_enable = False
@@ -1003,6 +1017,7 @@ def barcode_check_process():
             if res:
                 ser_send_data(dev=int(load_cfg.dev), cmd=0x57, data=str_list)
                 # ser_send_cmd(int(load_cfg.dev), 0x57)  # 回复夹具开始测试
+                _notify_mes_pass_wait_fixture(sn)
                 if int(load_cfg.dev) == 22:  # #[OMINIWATER-022-PROTO]
                     ominiwater_session_state = OMINIWATER_SESS_RUNNING
                     ominiwater_last_step = -1
