@@ -307,6 +307,24 @@ ominiair_finalize_done = False  # [OMINIAIR-0x88-RETRY] 本轮 0x88 已处理，
 # #[RV50-OMINI-AIR-CONFIG-PUSH] 015/021：MES 通过后 0x57 帧尾带配置码，循环至首帧 0x77
 AIR_CONFIG_PUSH_INTERVAL_MS = 500
 
+# #[FIXTURE-GATE-BURST] 015/016/017/019/050 门闸 0x57/0x58 三连发；017/050 实时 NG 0x89 三连发
+FIXTURE_REPLY_BURST_COUNT = 3
+FIXTURE_REPLY_BURST_INTERVAL_MS = 500
+GATE_BURST_DEVS = (15, 16, 17, 19, 50)
+fixture_gate_burst_active = False
+fixture_gate_burst_dev = 0
+fixture_gate_burst_cmd = 0
+fixture_gate_burst_payload = None
+fixture_gate_burst_sent = 0
+fixture_gate_burst_max = FIXTURE_REPLY_BURST_COUNT
+fixture_gate_burst_last_ms = 0.0
+fixture_gate_burst_cancel_on_77 = False
+fixture_89_burst_active = False
+fixture_89_burst_dev = 0
+fixture_89_burst_sent = 0
+fixture_89_burst_max = FIXTURE_REPLY_BURST_COUNT
+fixture_89_burst_last_ms = 0.0
+
 # #[OMINIWATER-022-PROTO] Omini 基站过水 device_type=022，帧设备字节 0x16
 OMINIWATER_77_DATA_LEN = 22
 OMINIWATER_SESS_IDLE = 0
@@ -677,6 +695,7 @@ def test_run_process():
     if int(load_cfg.dev) < 100:  # 海能主板测试工具 dev 小于100
         barcode_check_process()
         rv50_omini_air_config_push_tick()
+        fixture_reply_burst_tick()
         test_serial_rx_data_handle()
     if test_work_state == "running":
         if int(load_cfg.dev) == 101:  # 打高压测试（耐压测试）
@@ -793,6 +812,116 @@ def _notify_mes_pass_wait_fixture(sn=""):
     )
 
 
+def fixture_gate_burst_tx_dev(dev):
+    if int(dev) == 50:
+        return rv30_proto_tx_dev_byte()
+    return int(dev)
+
+
+def fixture_gate_burst_stop():
+    global fixture_gate_burst_active, fixture_gate_burst_payload
+    fixture_gate_burst_active = False
+    fixture_gate_burst_payload = None
+
+
+def fixture_89_burst_stop():
+    global fixture_89_burst_active
+    fixture_89_burst_active = False
+
+
+def fixture_all_reply_bursts_stop():
+    fixture_gate_burst_stop()
+    fixture_89_burst_stop()
+
+
+def fixture_gate_burst_start(dev, cmd, payload, max_count=FIXTURE_REPLY_BURST_COUNT,
+                             cancel_on_77=False):
+    global fixture_gate_burst_active, fixture_gate_burst_dev, fixture_gate_burst_cmd
+    global fixture_gate_burst_payload, fixture_gate_burst_sent, fixture_gate_burst_max
+    global fixture_gate_burst_last_ms, fixture_gate_burst_cancel_on_77
+    tx_dev = fixture_gate_burst_tx_dev(dev)
+    data = list(payload)
+    fixture_gate_burst_dev = tx_dev
+    fixture_gate_burst_cmd = int(cmd)
+    fixture_gate_burst_payload = data
+    fixture_gate_burst_sent = 0
+    fixture_gate_burst_max = int(max_count)
+    fixture_gate_burst_cancel_on_77 = bool(cancel_on_77)
+    fixture_gate_burst_active = True
+    fixture_gate_burst_last_ms = time.time() * 1000.0
+    ser_send_data(tx_dev, fixture_gate_burst_cmd, data)
+    fixture_gate_burst_sent = 1
+    if fixture_gate_burst_sent >= fixture_gate_burst_max:
+        fixture_gate_burst_stop()
+
+
+def fixture_gate_burst_tick():
+    global fixture_gate_burst_sent, fixture_gate_burst_last_ms
+    if not fixture_gate_burst_active or fixture_gate_burst_payload is None:
+        return
+    if fixture_gate_burst_sent >= fixture_gate_burst_max:
+        fixture_gate_burst_stop()
+        return
+    now_ms = time.time() * 1000.0
+    if now_ms - fixture_gate_burst_last_ms < FIXTURE_REPLY_BURST_INTERVAL_MS:
+        return
+    fixture_gate_burst_last_ms = now_ms
+    ser_send_data(fixture_gate_burst_dev, fixture_gate_burst_cmd, fixture_gate_burst_payload)
+    fixture_gate_burst_sent += 1
+    if fixture_gate_burst_sent >= fixture_gate_burst_max:
+        fixture_gate_burst_stop()
+
+
+def fixture_gate_burst_cancel_on_first_77():
+    if fixture_gate_burst_active and fixture_gate_burst_cancel_on_77:
+        fixture_gate_burst_stop()
+
+
+def fixture_gate_pass_burst(dev, payload):
+    fixture_gate_burst_start(dev, 0x57, payload, cancel_on_77=True)
+
+
+def fixture_gate_fail_burst(dev, payload):
+    fixture_gate_burst_start(dev, 0x58, payload, cancel_on_77=False)
+
+
+def fixture_89_burst_start(dev):
+    global fixture_89_burst_active, fixture_89_burst_dev, fixture_89_burst_sent
+    global fixture_89_burst_last_ms
+    if fixture_89_burst_active:
+        return
+    fixture_89_burst_dev = fixture_gate_burst_tx_dev(dev)
+    fixture_89_burst_sent = 0
+    fixture_89_burst_active = True
+    fixture_89_burst_last_ms = time.time() * 1000.0
+    ser_send_data(fixture_89_burst_dev, 0x89, [0x03])
+    fixture_89_burst_sent = 1
+    if fixture_89_burst_sent >= fixture_89_burst_max:
+        fixture_89_burst_stop()
+
+
+def fixture_89_burst_tick():
+    global fixture_89_burst_sent, fixture_89_burst_last_ms
+    if not fixture_89_burst_active:
+        return
+    if fixture_89_burst_sent >= fixture_89_burst_max:
+        fixture_89_burst_stop()
+        return
+    now_ms = time.time() * 1000.0
+    if now_ms - fixture_89_burst_last_ms < FIXTURE_REPLY_BURST_INTERVAL_MS:
+        return
+    fixture_89_burst_last_ms = now_ms
+    ser_send_data(fixture_89_burst_dev, 0x89, [0x03])
+    fixture_89_burst_sent += 1
+    if fixture_89_burst_sent >= fixture_89_burst_max:
+        fixture_89_burst_stop()
+
+
+def fixture_reply_burst_tick():
+    fixture_gate_burst_tick()
+    fixture_89_burst_tick()
+
+
 def barcode_check_process():
     global check_sn_enable
     global check_sn_str
@@ -846,15 +975,14 @@ def barcode_check_process():
         str_list = [int(byte) for byte in sn.encode('utf-8')]
         if int(load_cfg.dev) == 5:  # 地检
             return
-        elif int(load_cfg.dev) == 17:  # #[RV50-017-PROTO] 门闸失败 0x58+0x89[0x03]，不上报 MES
+        elif int(load_cfg.dev) == 17:  # #[RV50-017-PROTO] 门闸 0x57/0x58 三连发；失败不发 0x89
             print("[RV50-017] check sn: " + sn)
             encode_res = encode_rules.match_sn_encoding_rules(dev=load_cfg.dev, sn=str(sn))
             if encode_res is not True:
                 wx.CallAfter(MainFrame.main_frame.up_notification_ui,
                              second="SN码异常，请检测：" + str(sn),
                              color=wx.RED)
-                ser_send_data(dev=17, cmd=0x58, data=str_list)
-                ser_send_data(dev=17, cmd=0x89, data=[0x03])
+                fixture_gate_fail_burst(17, str_list)
                 check_sn_str = sn
                 check_sn_enable = False
                 rv50_session_state = RV50_SESS_ABORTED
@@ -862,7 +990,7 @@ def barcode_check_process():
             res = mes_run.check_sn_is_ok(sn)
             check_sn_str = sn
             if res:
-                ser_send_data(dev=17, cmd=0x57, data=str_list)
+                fixture_gate_pass_burst(17, str_list)
                 rv50_session_state = RV50_SESS_RUNNING
                 rv50_last_step = -1
                 rv50_max_step = 0
@@ -871,8 +999,7 @@ def barcode_check_process():
                 rv50_realtime_ng = False
                 _notify_mes_pass_wait_fixture(sn)
             else:
-                ser_send_data(dev=17, cmd=0x58, data=str_list)
-                ser_send_data(dev=17, cmd=0x89, data=[0x03])
+                fixture_gate_fail_burst(17, str_list)
                 rv50_session_state = RV50_SESS_ABORTED
             check_sn_enable = False
             return
@@ -934,23 +1061,21 @@ def barcode_check_process():
                 rv50pcba_session_state = RV50PCBA_SESS_ABORTED
             check_sn_enable = False
             return
-        elif int(load_cfg.dev) == 50:  # #[RV30-PROTO] 基站050：门闸失败先发 0x58 再发 0x89 0x03 并立即 MES NG，不等 0x88
+        elif int(load_cfg.dev) == 50:  # #[RV30-PROTO] 门闸 0x57/0x58 三连发；失败不发 0x89
             print("check sn: " + sn)
             encode_res = encode_rules.match_sn_encoding_rules(dev=load_cfg.dev, sn=str(sn))
-            _txd = rv30_proto_tx_dev_byte()
             if encode_res is not True:
                 wx.CallAfter(MainFrame.main_frame.up_notification_ui,
                              second="SN码异常，请检测：" + str(sn),
                              color=wx.RED)
-                ser_send_data(dev=_txd, cmd=0x58, data=str_list)
-                ser_send_data(dev=_txd, cmd=0x89, data=[0x03])
+                fixture_gate_fail_burst(50, str_list)
                 check_sn_str = sn
                 check_sn_enable = False
                 return
             res = mes_run.check_sn_is_ok(sn)
             check_sn_str = sn
             if res:
-                ser_send_data(dev=_txd, cmd=0x57, data=str_list)
+                fixture_gate_pass_burst(50, str_list)
                 rv30_session_state = RV30_SESS_RUNNING
                 rv30_last_step = -1
                 rv30_max_step = 0
@@ -959,44 +1084,45 @@ def barcode_check_process():
                 rv30_realtime_ng = False
                 _notify_mes_pass_wait_fixture(sn)
             else:
-                ser_send_data(dev=_txd, cmd=0x58, data=str_list)
-                ser_send_data(dev=_txd, cmd=0x89, data=[0x03])
-                # rv30_proto_abort_mes_after_gate_fail()
+                fixture_gate_fail_burst(50, str_list)
             check_sn_enable = False
             return
-        elif int(load_cfg.dev) == 19:  # [WSXQMX-019] 扫码门闸：0x57/0x58，不发 0x67
+        elif int(load_cfg.dev) == 19:  # [WSXQMX-019] 扫码门闸：0x57/0x58 三连发，不发 0x67
             print("[WSXQMX-019] check sn: " + sn)
             encode_res = encode_rules.match_sn_encoding_rules(dev=load_cfg.dev, sn=str(sn))
             if encode_res is not True:
                 wx.CallAfter(MainFrame.main_frame.up_notification_ui,
                              second="SN码异常，请检测：" + str(sn),
                              color=wx.RED)
-                ser_send_data(dev=19, cmd=0x58, data=str_list)
+                fixture_gate_fail_burst(19, str_list)
                 check_sn_enable = False
                 return
             res = mes_run.check_sn_is_ok(sn)
             check_sn_str = sn
             if res:
-                ser_send_data(dev=19, cmd=0x57, data=str_list)
+                fixture_gate_pass_burst(19, str_list)
                 wsxqmx_session_state = WSXQMX_SESS_RUNNING
                 wsxqmx_last_step = -1
                 wsxqmx_got_step3 = False
                 wsxqmx_finalize_done = False
                 _notify_mes_pass_wait_fixture(sn)
             else:
-                ser_send_data(dev=19, cmd=0x58, data=str_list)
+                fixture_gate_fail_burst(19, str_list)
                 wx.CallAfter(MainFrame.main_frame.up_notification_ui,
                              second="MES过站失败", color=wx.RED)
             check_sn_enable = False
             return
-        elif int(load_cfg.dev) in (15, 21):  # #[RV50-OMINI-AIR-CONFIG-PUSH] 0x57+配置码
+        elif int(load_cfg.dev) in (15, 21):  # #[RV50-OMINI-AIR-CONFIG-PUSH] 0x57+配置码；015 失败 0x58×3
             print("check sn: " + sn)
             encode_res = encode_rules.match_sn_encoding_rules(dev=load_cfg.dev, sn=str(sn))
             if encode_res is not True:
                 wx.CallAfter(MainFrame.main_frame.up_notification_ui,
                              second="SN码异常，请检测：" + str(sn),
                              color=wx.RED)
-                ser_send_data(dev=int(load_cfg.dev), cmd=0x58, data=str_list)
+                if int(load_cfg.dev) == 15:
+                    fixture_gate_fail_burst(15, str_list)
+                else:
+                    ser_send_data(dev=int(load_cfg.dev), cmd=0x58, data=str_list)
                 check_sn_enable = False
                 return
             res = mes_run.check_sn_is_ok(sn)
@@ -1005,7 +1131,10 @@ def barcode_check_process():
                 if rv50_omini_air_on_scan_pass(int(load_cfg.dev), str_list):
                     _notify_mes_pass_wait_fixture(sn)
             else:
-                ser_send_data(dev=int(load_cfg.dev), cmd=0x58, data=str_list)
+                if int(load_cfg.dev) == 15:
+                    fixture_gate_fail_burst(15, str_list)
+                else:
+                    ser_send_data(dev=int(load_cfg.dev), cmd=0x58, data=str_list)
             check_sn_enable = False
             return
         elif 0 < int(load_cfg.dev) < 100:
@@ -1016,8 +1145,10 @@ def barcode_check_process():
                 wx.CallAfter(MainFrame.main_frame.up_notification_ui,
                              second="SN码异常，请检测：" + str(sn),
                              color=wx.RED)
-                ser_send_data(dev=int(load_cfg.dev), cmd=0x58, data=str_list)
-                # ser_send_cmd(int(load_cfg.dev), 0x58)  # 回复夹具扫码失败
+                if int(load_cfg.dev) == 16:
+                    fixture_gate_fail_burst(16, str_list)
+                else:
+                    ser_send_data(dev=int(load_cfg.dev), cmd=0x58, data=str_list)
                 check_sn_enable = False
                 return
 
@@ -1026,8 +1157,10 @@ def barcode_check_process():
         check_sn_str = sn
         if int(load_cfg.dev) < 100 and int(load_cfg.dev) != 5:  # 只处理夹具
             if res:
-                ser_send_data(dev=int(load_cfg.dev), cmd=0x57, data=str_list)
-                # ser_send_cmd(int(load_cfg.dev), 0x57)  # 回复夹具开始测试
+                if int(load_cfg.dev) == 16:
+                    fixture_gate_pass_burst(16, str_list)
+                else:
+                    ser_send_data(dev=int(load_cfg.dev), cmd=0x57, data=str_list)
                 _notify_mes_pass_wait_fixture(sn)
                 if int(load_cfg.dev) == 22:  # #[OMINIWATER-022-PROTO]
                     ominiwater_session_state = OMINIWATER_SESS_RUNNING
@@ -1042,8 +1175,10 @@ def barcode_check_process():
                     rv50water_last_level_notify = -1
                     rv50water_finalize_done = False
             else:
-                ser_send_data(dev=int(load_cfg.dev), cmd=0x58, data=str_list)
-                # ser_send_cmd(int(load_cfg.dev), 0x58)  # 回复夹具开始测试
+                if int(load_cfg.dev) == 16:
+                    fixture_gate_fail_burst(16, str_list)
+                else:
+                    ser_send_data(dev=int(load_cfg.dev), cmd=0x58, data=str_list)
 
         check_sn_enable = False
 
@@ -1695,10 +1830,8 @@ def test_cmd_handle(dev, cmd, dat):
         wx.CallAfter(MainFrame.main_frame.up_notification_ui, second="治具数据异常",
                      color=wx.RED)
         return
-    # #[RV30-PROTO] device_type=050 时治具常发设备字节 0x50(十进制80)，与 YAML 中 50 对齐
+    # #[RV30-PROTO] device_type=050 时治具设备字节为 50（0x32），与 YAML 中 50 一致
     _dev_match = int(load_cfg.dev) == int(dev)
-    if int(load_cfg.dev) == 50 and int(dev) == 0x50:
-        _dev_match = True
     if not _dev_match:
         print("配置设备类型：" + str(int(load_cfg.dev)) + " 上传的设备类型：" + str(int(dev)))
         wx.CallAfter(MainFrame.main_frame.up_notification_ui, second="治具类型不匹配", color=wx.RED)
@@ -1734,7 +1867,7 @@ def test_cmd_handle(dev, cmd, dat):
         elif int(dev) == 19:  # [WSXQMX-019] RV50 污水箱气密性，帧设备字节 0x13
             wsxqmx_mode(dev, cmd, dat)
         #[FX_TODO]
-        elif int(dev) == 50:  # #[RV30-PROTO] 帧设备字节 50/0x50 均进 FX
+        elif int(dev) == 50:  # #[RV30-PROTO] 帧设备字节 50（0x32）
            RV30_finished_product_mode(dev, cmd, dat)
 
 
@@ -1773,9 +1906,7 @@ def rv30_proto_reset_to_idle():
 
 
 def rv30_proto_tx_dev_byte():
-    # #[RV30-PROTO] 发往治具的「设备」字节：与治具上行帧一致；配置 050 时默认 0x50（十进制80），联调可改
-    if int(load_cfg.dev) == 50:
-        return 0x50
+    # #[RV30-PROTO] 发往治具的设备字节与 device_type 数值一致（050 → 50 / 0x32）
     return int(load_cfg.dev)
 
 
@@ -1797,12 +1928,12 @@ def rv30_proto_abort_mes_after_gate_fail():
 
 
 def rv30_proto_realtime_fail(dev, reason):
-    # #[RV30-PROTO] 实时阶段仅发 0x89 0x03，不等 0x88 即 MES NG
+    # #[RV30-PROTO] 实时阶段 0x89[0x03] 三连发；MES NG 仅一次
     global rv30_realtime_ng
     if rv30_89_mes_done:
         return
     rv30_realtime_ng = True
-    ser_send_data(dev, 0x89, data=[0x03])
+    fixture_89_burst_start(50)
     mes_run.add_report(name="RV30实时判据", result="NG", value=str(reason))
     rv30_proto_mes_ng_once(notify_second="实时判据失败：" + str(reason))
 
@@ -2403,7 +2534,7 @@ def rv50_proto_realtime_fail(dev, reason):
     if rv50_89_mes_done:
         return
     rv50_realtime_ng = True
-    ser_send_data(dev, 0x89, data=[0x03])
+    fixture_89_burst_start(dev)
     mes_run.add_report(name="RV50实时判据", result="NG", value=str(reason))
     rv50_proto_mes_ng_once(notify_second="实时判据失败：" + str(reason))
 
@@ -3010,6 +3141,7 @@ def RV50_finished_product_mode(dev, cmd, dat):
         return
     if cmd == 0x66:
         if dat[0] == 0x00:
+            fixture_all_reply_bursts_stop()
             test_start_time = datetime.now()
             mes_run.clear_report()
             tool.clear_queue(barcode_q)
@@ -3028,6 +3160,7 @@ def RV50_finished_product_mode(dev, cmd, dat):
     elif cmd == 0x77:
         if rv50_session_state != RV50_SESS_RUNNING:
             return
+        fixture_gate_burst_cancel_on_first_77()
         print("[RV50-017] 0x77 len=" + str(len(dat)))
         p = rv50_proto_parse_77_apply_globals(dat)
         wx.CallAfter(MainFrame.main_frame.up_ver_ui, dev_ver)
@@ -6102,6 +6235,7 @@ def RV50_water_mode(dev, cmd, dat):
 
     if cmd == 0x66:
         if dat[0] == 0x00:
+            fixture_all_reply_bursts_stop()
             test_start_time = datetime.now()
             mes_run.clear_report()
             tool.clear_queue(barcode_q)
@@ -6114,6 +6248,7 @@ def RV50_water_mode(dev, cmd, dat):
     elif cmd == 0x77:
         if rv50water_session_state != RV50WATER_SESS_RUNNING:
             return
+        fixture_gate_burst_cancel_on_first_77()
         p = rv50water_parse_77(dat)
         if p is None:
             return
@@ -6480,6 +6615,7 @@ def RV50_air_mode(dev, cmd, dat):
 
     if cmd == 0x66:
         if dat[0] == 0x00:
+            fixture_all_reply_bursts_stop()
             test_start_time = datetime.now()
             mes_run.clear_report()
             tool.clear_queue(barcode_q)
@@ -7450,6 +7586,7 @@ def wsxqmx_mode(dev, cmd, dat):
 
     if cmd == 0x66:
         if dat[0] == 0x00:
+            fixture_all_reply_bursts_stop()
             test_start_time = datetime.now()
             mes_run.clear_report()
             tool.clear_queue(barcode_q)
@@ -7461,6 +7598,7 @@ def wsxqmx_mode(dev, cmd, dat):
     elif cmd == 0x77:
         if wsxqmx_session_state != WSXQMX_SESS_RUNNING:
             return
+        fixture_gate_burst_cancel_on_first_77()
         p = wsxqmx_parse_77(dat)
         if p is None:
             return
@@ -7513,6 +7651,7 @@ def RV30_finished_product_mode(dev, cmd, dat):
     if cmd == 0x66:
         # #[RV30-PROTO] 开始测试：禁止 ser_send_cmd(0x67)，仅等扫码后 0x57/0x58
         if dat[0] == 0x00:
+            fixture_all_reply_bursts_stop()
             test_start_time = datetime.now()
             mes_run.clear_report()
             tool.clear_queue(barcode_q)
@@ -7543,6 +7682,7 @@ def RV30_finished_product_mode(dev, cmd, dat):
         if rv30_session_state != RV30_SESS_RUNNING:  # 状态机放在开头，根据状态决定是否进入流程
             return
 
+        fixture_gate_burst_cancel_on_first_77()
 
         p = rv30_proto_parse_77_apply_globals(dat)  # 读取数据帧，并且将结果返回到全局变量，以及组合为一个键值对
         wx.CallAfter(MainFrame.main_frame.up_ver_ui, dev_ver)
