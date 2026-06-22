@@ -272,6 +272,7 @@ wsxqmx_session_state = WSXQMX_SESS_IDLE
 wsxqmx_last_step = -1
 wsxqmx_hold_pressure_kpa = None  # [WSXQMX-019] 步骤03锁存的保压结束气压（kPa）
 wsxqmx_got_step3 = False
+wsxqmx_finalize_done = False  # [WSXQMX-0x88-RETRY] 本轮 0x88 已处理，重复结束帧直接忽略
 
 # #[RV50-015-AIR-PROTO] RV50 基站过气 device_type=015，帧设备字节 0x0F；0x77 数据区 13 字节（含配置回读）
 RV50AIR_77_DATA_LEN = 13
@@ -286,6 +287,7 @@ rv50air_got_step3 = False
 rv50air_config_push_active = False
 rv50air_config_push_payload = None
 rv50air_config_push_last_ms = 0.0
+rv50air_finalize_done = False  # [RV50AIR-0x88-RETRY] 本轮 0x88 已处理，重复结束帧直接忽略
 
 # #[OMINIAIR-021-PROTO] Omini 基站过气 device_type=021，帧设备字节 0x15；0x77 数据区 13 字节（含配置回读）
 OMINIAIR_77_DATA_LEN = 13
@@ -300,6 +302,7 @@ ominiair_got_step3 = False
 ominiair_config_push_active = False
 ominiair_config_push_payload = None
 ominiair_config_push_last_ms = 0.0
+ominiair_finalize_done = False  # [OMINIAIR-0x88-RETRY] 本轮 0x88 已处理，重复结束帧直接忽略
 
 # #[RV50-OMINI-AIR-CONFIG-PUSH] 015/021：MES 通过后 0x57 帧尾带配置码，循环至首帧 0x77
 AIR_CONFIG_PUSH_INTERVAL_MS = 500
@@ -315,6 +318,7 @@ ominiwater_last_step = -1
 ominiwater_last_p = None
 ominiwater_got_step3 = False
 ominiwater_last_level_notify = -1
+ominiwater_finalize_done = False  # [OMINIWATER-0x88-RETRY] 本轮 0x88 已处理，重复结束帧直接忽略
 
 # #[RV50-016-WATER-PROTO] RV50 基站过水 device_type=016，帧设备字节 0x10
 RV50WATER_77_DATA_LEN = 22
@@ -327,6 +331,7 @@ rv50water_last_step = -1
 rv50water_last_p = None
 rv50water_got_step3 = False
 rv50water_last_level_notify = -1
+rv50water_finalize_done = False  # [RV50WATER-0x88-RETRY] 本轮 0x88 已处理，重复结束帧直接忽略
 
 # #[RV50-017-PROTO] RV50 基站全功能 device_type=017，0x77 数据区 38 字节（帧长 0x26）
 RV50_77_DATA_LEN = 38
@@ -800,20 +805,25 @@ def barcode_check_process():
     global wsxqmx_session_state
     global wsxqmx_last_step
     global wsxqmx_got_step3
+    global wsxqmx_finalize_done
     global rv50air_session_state
     global rv50air_last_step
     global rv50air_got_step3
+    global rv50air_finalize_done
     global ominiair_session_state
     global ominiair_last_step
     global ominiair_got_step3
+    global ominiair_finalize_done
     global ominiwater_session_state
     global ominiwater_last_step
     global ominiwater_got_step3
     global ominiwater_last_level_notify
+    global ominiwater_finalize_done
     global rv50water_session_state
     global rv50water_last_step
     global rv50water_got_step3
     global rv50water_last_level_notify
+    global rv50water_finalize_done
     global rv50_session_state
     global rv50_last_step
     global rv50_max_step
@@ -971,6 +981,7 @@ def barcode_check_process():
                 wsxqmx_session_state = WSXQMX_SESS_RUNNING
                 wsxqmx_last_step = -1
                 wsxqmx_got_step3 = False
+                wsxqmx_finalize_done = False
                 _notify_mes_pass_wait_fixture(sn)
             else:
                 ser_send_data(dev=19, cmd=0x58, data=str_list)
@@ -1023,11 +1034,13 @@ def barcode_check_process():
                     ominiwater_last_step = -1
                     ominiwater_got_step3 = False
                     ominiwater_last_level_notify = -1
+                    ominiwater_finalize_done = False
                 elif int(load_cfg.dev) == 16:  # #[RV50-016-WATER-PROTO]
                     rv50water_session_state = RV50WATER_SESS_RUNNING
                     rv50water_last_step = -1
                     rv50water_got_step3 = False
                     rv50water_last_level_notify = -1
+                    rv50water_finalize_done = False
             else:
                 ser_send_data(dev=int(load_cfg.dev), cmd=0x58, data=str_list)
                 # ser_send_cmd(int(load_cfg.dev), 0x58)  # 回复夹具开始测试
@@ -5640,8 +5653,8 @@ def rv50air_ui_result_for_config_readback(value, finalize):
 
 
 def rv50_omini_air_on_scan_pass(dev, sn_list):
-    global rv50air_session_state, rv50air_last_step, rv50air_got_step3
-    global ominiair_session_state, ominiair_last_step, ominiair_got_step3
+    global rv50air_session_state, rv50air_last_step, rv50air_got_step3, rv50air_finalize_done
+    global ominiair_session_state, ominiair_last_step, ominiair_got_step3, ominiair_finalize_done
 
     payload = rv50air_build_57_payload(sn_list)
     if payload is None:
@@ -5655,11 +5668,13 @@ def rv50_omini_air_on_scan_pass(dev, sn_list):
         rv50air_session_state = RV50AIR_SESS_RUNNING
         rv50air_last_step = -1
         rv50air_got_step3 = False
+        rv50air_finalize_done = False
         rv50air_start_config_push(payload)
     elif dev == 21:
         ominiair_session_state = OMINIAIR_SESS_RUNNING
         ominiair_last_step = -1
         ominiair_got_step3 = False
+        ominiair_finalize_done = False
         ominiair_start_config_push(payload)
     else:
         return False
@@ -5702,12 +5717,13 @@ def rv50_base_add_string_report(name, field, value):
 # ---------- #[RV50-016-WATER-PROTO] RV50 基站过水（device_type=016，帧 dev=0x10）----------
 def rv50water_reset_session():
     global rv50water_session_state, rv50water_last_step, rv50water_last_p
-    global rv50water_got_step3, rv50water_last_level_notify
+    global rv50water_got_step3, rv50water_last_level_notify, rv50water_finalize_done
     rv50water_session_state = RV50WATER_SESS_IDLE
     rv50water_last_step = -1
     rv50water_last_p = None
     rv50water_got_step3 = False
     rv50water_last_level_notify = -1
+    rv50water_finalize_done = False
 
 
 def rv50water_u16_be(hi, lo):
@@ -6017,6 +6033,11 @@ def rv50water_level_notify(level):
 
 def rv50water_finalize_88(dev, dat):
     global test_end_time, rv50water_session_state, rv50water_last_p, rv50water_got_step3
+    global rv50water_finalize_done
+    if rv50water_finalize_done:
+        print("[RV50-016-WATER] 重复 0x88，忽略")
+        return
+
     test_end_time = datetime.now()
     print("[RV50-016-WATER] 测试结束帧 dat=" + str(dat))
 
@@ -6029,7 +6050,7 @@ def rv50water_finalize_88(dev, dat):
                          second="治具与基站通讯失败", color=wx.RED)
         clear_sn_save_list()
         rv50water_session_state = RV50WATER_SESS_FINISHED
-        rv50water_reset_session()
+        rv50water_finalize_done = True
         return
 
     if res_byte != 0x03:
@@ -6041,7 +6062,7 @@ def rv50water_finalize_88(dev, dat):
                          second=res_display_str, color=wx.RED)
         clear_sn_save_list()
         rv50water_session_state = RV50WATER_SESS_FINISHED
-        rv50water_reset_session()
+        rv50water_finalize_done = True
         return
 
     p = rv50water_last_p
@@ -6068,7 +6089,7 @@ def rv50water_finalize_88(dev, dat):
                      second=res_display_str, color=text_color)
     clear_sn_save_list()
     rv50water_session_state = RV50WATER_SESS_FINISHED
-    rv50water_reset_session()
+    rv50water_finalize_done = True
 
 
 def RV50_water_mode(dev, cmd, dat):
@@ -6119,11 +6140,13 @@ def RV50_water_mode(dev, cmd, dat):
 # ---------- #[RV50-015-AIR-PROTO] RV50 基站过气（device_type=015，帧 dev=0x0F）----------
 def rv50air_reset_session():
     global rv50air_session_state, rv50air_last_step, rv50air_last_p, rv50air_got_step3
+    global rv50air_finalize_done
     rv50air_stop_config_push()
     rv50air_session_state = RV50AIR_SESS_IDLE
     rv50air_last_step = -1
     rv50air_last_p = None
     rv50air_got_step3 = False
+    rv50air_finalize_done = False
 
 
 def rv50air_u16_be(hi, lo):
@@ -6388,6 +6411,11 @@ def rv50air_step_notify(step):
 
 def rv50air_finalize_88(dev, dat):
     global test_end_time, rv50air_session_state, rv50air_last_p, rv50air_got_step3
+    global rv50air_finalize_done
+    if rv50air_finalize_done:
+        print("[RV50-015-AIR] 重复 0x88，忽略")
+        return
+
     test_end_time = datetime.now()
     print("[RV50-015-AIR] 测试结束帧 dat=" + str(dat))
 
@@ -6400,7 +6428,7 @@ def rv50air_finalize_88(dev, dat):
                          second="治具与基站通讯失败", color=wx.RED)
         clear_sn_save_list()
         rv50air_session_state = RV50AIR_SESS_FINISHED
-        rv50air_reset_session()
+        rv50air_finalize_done = True
         return
 
     if res_byte != 0x03:
@@ -6412,7 +6440,7 @@ def rv50air_finalize_88(dev, dat):
                          second=res_display_str, color=wx.RED)
         clear_sn_save_list()
         rv50air_session_state = RV50AIR_SESS_FINISHED
-        rv50air_reset_session()
+        rv50air_finalize_done = True
         return
 
     p = rv50air_last_p
@@ -6439,7 +6467,7 @@ def rv50air_finalize_88(dev, dat):
                      second=res_display_str, color=text_color)
     clear_sn_save_list()
     rv50air_session_state = RV50AIR_SESS_FINISHED
-    rv50air_reset_session()
+    rv50air_finalize_done = True
 
 
 def RV50_air_mode(dev, cmd, dat):
@@ -6549,11 +6577,13 @@ def ominiair_build_item_result():
 
 def ominiair_reset_session():
     global ominiair_session_state, ominiair_last_step, ominiair_last_p, ominiair_got_step3
+    global ominiair_finalize_done
     ominiair_stop_config_push()
     ominiair_session_state = OMINIAIR_SESS_IDLE
     ominiair_last_step = -1
     ominiair_last_p = None
     ominiair_got_step3 = False
+    ominiair_finalize_done = False
 
 
 def ominiair_parse_77(dat):
@@ -6752,6 +6782,11 @@ def ominiair_add_reports(p):
 
 def ominiair_finalize_88(dev, dat):
     global test_end_time, ominiair_session_state, ominiair_last_p, ominiair_got_step3
+    global ominiair_finalize_done
+    if ominiair_finalize_done:
+        print("[OMINI-021-AIR] 重复 0x88，忽略")
+        return
+
     test_end_time = datetime.now()
     print("[OMINI-021-AIR] 测试结束帧 dat=" + str(dat))
 
@@ -6764,7 +6799,7 @@ def ominiair_finalize_88(dev, dat):
                          second="治具与基站通讯失败", color=wx.RED)
         clear_sn_save_list()
         ominiair_session_state = OMINIAIR_SESS_FINISHED
-        ominiair_reset_session()
+        ominiair_finalize_done = True
         return
 
     if res_byte != 0x03:
@@ -6776,7 +6811,7 @@ def ominiair_finalize_88(dev, dat):
                          second=res_display_str, color=wx.RED)
         clear_sn_save_list()
         ominiair_session_state = OMINIAIR_SESS_FINISHED
-        ominiair_reset_session()
+        ominiair_finalize_done = True
         return
 
     p = ominiair_last_p
@@ -6803,7 +6838,7 @@ def ominiair_finalize_88(dev, dat):
                      second=res_display_str, color=text_color)
     clear_sn_save_list()
     ominiair_session_state = OMINIAIR_SESS_FINISHED
-    ominiair_reset_session()
+    ominiair_finalize_done = True
 
 
 def Omini_air_mode(dev, cmd, dat):
@@ -6938,12 +6973,13 @@ def ominiwater_build_item_result():
 
 def ominiwater_reset_session():
     global ominiwater_session_state, ominiwater_last_step, ominiwater_last_p, ominiwater_got_step3
-    global ominiwater_last_level_notify
+    global ominiwater_last_level_notify, ominiwater_finalize_done
     ominiwater_session_state = OMINIWATER_SESS_IDLE
     ominiwater_last_step = -1
     ominiwater_last_p = None
     ominiwater_got_step3 = False
     ominiwater_last_level_notify = -1
+    ominiwater_finalize_done = False
 
 
 def ominiwater_int_limits(field):
@@ -7139,6 +7175,11 @@ def ominiwater_add_reports(p):
 
 def ominiwater_finalize_88(dev, dat):
     global test_end_time, ominiwater_session_state, ominiwater_last_p, ominiwater_got_step3
+    global ominiwater_finalize_done
+    if ominiwater_finalize_done:
+        print("[OMINI-022-WATER] 重复 0x88，忽略")
+        return
+
     test_end_time = datetime.now()
     print("[OMINI-022-WATER] 测试结束帧 dat=" + str(dat))
 
@@ -7151,7 +7192,7 @@ def ominiwater_finalize_88(dev, dat):
                          second="治具与基站通讯失败", color=wx.RED)
         clear_sn_save_list()
         ominiwater_session_state = OMINIWATER_SESS_FINISHED
-        ominiwater_reset_session()
+        ominiwater_finalize_done = True
         return
 
     if res_byte != 0x03:
@@ -7163,7 +7204,7 @@ def ominiwater_finalize_88(dev, dat):
                          second=res_display_str, color=wx.RED)
         clear_sn_save_list()
         ominiwater_session_state = OMINIWATER_SESS_FINISHED
-        ominiwater_reset_session()
+        ominiwater_finalize_done = True
         return
 
     p = ominiwater_last_p
@@ -7190,7 +7231,7 @@ def ominiwater_finalize_88(dev, dat):
                      second=res_display_str, color=text_color)
     clear_sn_save_list()
     ominiwater_session_state = OMINIWATER_SESS_FINISHED
-    ominiwater_reset_session()
+    ominiwater_finalize_done = True
 
 
 def Omini_water_mode(dev, cmd, dat):
@@ -7259,10 +7300,12 @@ ver_res = "OK"
 def wsxqmx_reset_session():
     # [WSXQMX-019] 一轮结束后恢复，便于下一轮 0x66
     global wsxqmx_session_state, wsxqmx_last_step, wsxqmx_hold_pressure_kpa, wsxqmx_got_step3
+    global wsxqmx_finalize_done
     wsxqmx_session_state = WSXQMX_SESS_IDLE
     wsxqmx_last_step = -1
     wsxqmx_hold_pressure_kpa = None
     wsxqmx_got_step3 = False
+    wsxqmx_finalize_done = False
 
 
 def wsxqmx_bytes_to_int16(hi, lo):
@@ -7323,6 +7366,11 @@ def wsxqmx_parse_77(dat):
 def wsxqmx_finalize_88(dev, dat):
     # [WSXQMX-019] 0x88 dat[0]=03 治具正常结束；04 治具与基站通讯失败
     global test_end_time, wsxqmx_session_state, wsxqmx_hold_pressure_kpa, wsxqmx_got_step3
+    global wsxqmx_finalize_done
+    if wsxqmx_finalize_done:
+        print("[WSXQMX-019] 重复 0x88，忽略")
+        return
+
     test_end_time = datetime.now()
     print("[WSXQMX-019] 测试结束帧 dat=" + str(dat))
 
@@ -7335,7 +7383,7 @@ def wsxqmx_finalize_88(dev, dat):
                          second="治具与基站通讯失败", color=wx.RED)
         clear_sn_save_list()
         wsxqmx_session_state = WSXQMX_SESS_FINISHED
-        wsxqmx_reset_session()
+        wsxqmx_finalize_done = True
         return
 
     if res_byte != 0x03:
@@ -7348,7 +7396,7 @@ def wsxqmx_finalize_88(dev, dat):
                          second=res_display_str, color=text_color)
         clear_sn_save_list()
         wsxqmx_session_state = WSXQMX_SESS_FINISHED
-        wsxqmx_reset_session()
+        wsxqmx_finalize_done = True
         return
 
     kpa = wsxqmx_hold_pressure_kpa
@@ -7388,7 +7436,7 @@ def wsxqmx_finalize_88(dev, dat):
                      second=res_display_str, color=text_color)
     clear_sn_save_list()
     wsxqmx_session_state = WSXQMX_SESS_FINISHED
-    wsxqmx_reset_session()
+    wsxqmx_finalize_done = True
 
 
 def wsxqmx_mode(dev, cmd, dat):
