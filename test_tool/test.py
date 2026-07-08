@@ -135,6 +135,8 @@ class LoadCfg:
     rv50water_right_mop_temp_max: int = 1800
     rv50water_base_hot_temp_min: int = 600
     rv50water_base_hot_temp_max: int = 1300
+    rv50water_host_hot_temp_min: int = 0
+    rv50water_host_hot_temp_max: int = 0
     # #[RV50-017-PROTO] device_type=017 基站全功能（帧设备字节 0x11）
     rv50_charge_Hmin: int = 0
     rv50_charge_Hmax: int = 0
@@ -338,8 +340,8 @@ ominiwater_got_step3 = False
 ominiwater_last_level_notify = -1
 ominiwater_finalize_done = False  # [OMINIWATER-0x88-RETRY] 本轮 0x88 已处理，重复结束帧直接忽略
 
-# #[RV50-016-WATER-PROTO] RV50 基站过水 device_type=016，帧设备字节 0x10
-RV50WATER_77_DATA_LEN = 22
+# #[RV50-016-WATER-PROTO] RV50 基站过水 device_type=016，帧设备字节 0x10；022 仍为 22 字节
+RV50WATER_77_DATA_LEN = 24
 RV50WATER_SESS_IDLE = 0
 RV50WATER_SESS_WAIT_SN = 1
 RV50WATER_SESS_RUNNING = 2
@@ -1501,6 +1503,12 @@ def load_config():
     load_cfg.rv50water_base_hot_temp_max = int(
         config.get("rv50water_base_hot_temp_max",
                    getattr(load_cfg, "rv50water_base_hot_temp_max", 1300)))
+    load_cfg.rv50water_host_hot_temp_min = int(
+        config.get("rv50water_host_hot_temp_min",
+                   getattr(load_cfg, "rv50water_host_hot_temp_min", 0)))
+    load_cfg.rv50water_host_hot_temp_max = int(
+        config.get("rv50water_host_hot_temp_max",
+                   getattr(load_cfg, "rv50water_host_hot_temp_max", 0)))
 
     # #[RV50-017-PROTO] device_type=017 判据（0=不参与比较）
     rv50_chg_min, rv50_chg_max = _rv30_config_u16(
@@ -5863,12 +5871,13 @@ def rv50water_u16_be(hi, lo):
     return ((int(hi) & 0xFF) << 8) | (int(lo) & 0xFF)
 
 
-def rv50water_parse_77(dat):
-    if len(dat) < RV50WATER_77_DATA_LEN:
-        print("[RV50-016-WATER] 0x77 数据区长度不足: got", len(dat),
-              "need", RV50WATER_77_DATA_LEN)
+def rv50water_parse_77(dat, min_len=None):
+    if min_len is None:
+        min_len = RV50WATER_77_DATA_LEN
+    if len(dat) < min_len:
+        print("[RV50WATER] 0x77 数据区长度不足: got", len(dat), "need", min_len)
         return None
-    return {
+    p = {
         "step": int(dat[0]),
         "clear_water_volume": rv50water_u16_be(dat[1], dat[2]),
         "duty_water_volume": rv50water_u16_be(dat[3], dat[4]),
@@ -5881,6 +5890,9 @@ def rv50water_parse_77(dat):
         "base_ver": rv50_fmt_ver_3bytes(dat, 16),
         "base_config": rv50_fmt_config_3bytes(dat, 19),
     }
+    if len(dat) >= RV50WATER_77_DATA_LEN:
+        p["host_hot_water_temp"] = rv50water_u16_be(dat[22], dat[23])
+    return p
 
 
 RV50WATER_UI_LABELS = {
@@ -5892,6 +5904,7 @@ RV50WATER_UI_LABELS = {
     "right_mop_temperature": "右拖布温度adc：",
     "cleaner_liquid_level": "清洁剂液位：",
     "base_hot_water_temp": "基站热水温度adc：",
+    "host_hot_water_temp": "主机注水口热水温度adc：",
     "base_station_ver": "基站版本：",
     "base_station_config": "基站配置码：",
 }
@@ -5925,6 +5938,9 @@ RV50WATER_FIELD_REGISTRY = [
      "parse_key": "base_ver"},
     {"field": "base_config", "kind": "string", "ui": "base_station_config", "mes": "基站配置码",
      "parse_key": "base_config", "expect_attr": "base_station_config_expected"},
+    {"field": "host_hot_temp", "kind": "range_int", "ui": "host_hot_water_temp",
+     "mes": "主机注水口热水温度adc", "parse_key": "host_hot_water_temp",
+     "min_attr": "rv50water_host_hot_temp_min", "max_attr": "rv50water_host_hot_temp_max"},
 ]
 
 
@@ -6249,7 +6265,7 @@ def RV50_water_mode(dev, cmd, dat):
         if rv50water_session_state != RV50WATER_SESS_RUNNING:
             return
         fixture_gate_burst_cancel_on_first_77()
-        p = rv50water_parse_77(dat)
+        p = rv50water_parse_77(dat, min_len=RV50WATER_77_DATA_LEN)
         if p is None:
             return
         rv50water_last_p = p
@@ -7392,7 +7408,7 @@ def Omini_water_mode(dev, cmd, dat):
     elif cmd == 0x77:
         if ominiwater_session_state != OMINIWATER_SESS_RUNNING:
             return
-        p = rv50water_parse_77(dat)
+        p = rv50water_parse_77(dat, min_len=OMINIWATER_77_DATA_LEN)
         if p is None:
             return
         ominiwater_last_p = p
