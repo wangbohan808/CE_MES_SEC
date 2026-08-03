@@ -6417,8 +6417,9 @@ def rv50air_parse_77(dat):
               "need", RV50AIR_77_DATA_LEN)
         return None
     step = int(dat[0])
-    raw_clear = rv50air_u16_be(dat[1], dat[2])
-    raw_mop = rv50air_u16_be(dat[3], dat[4])
+    # 三路气压均为有符号 int16 大端（10Pa 计数 → kPa）
+    raw_clear = wsxqmx_bytes_to_int16(dat[1], dat[2])
+    raw_mop = wsxqmx_bytes_to_int16(dat[3], dat[4])
     raw_duty = wsxqmx_bytes_to_int16(dat[5], dat[6])
     return {
         "step": step,
