@@ -54,7 +54,7 @@ rv30_item_result = [
 ]
 
 
-# #[RV50-016-WATER-PROTO] device_type=016 测试格键名与 test.py 0x77 字段一致
+# #[RV50-016-WATER-PROTO] device_type=016；实际文案由 rv50water_build_item_result 按 exact/range 动态生成
 rv50water_item_result = [
     {"clear_water_volume": ["清水通路水量：", "", "white"]},
     {"duty_water_volume": ["污水通路水量：", "", "white"]},

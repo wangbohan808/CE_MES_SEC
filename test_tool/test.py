@@ -124,10 +124,19 @@ class LoadCfg:
     ominiwater_base_hot_temp_min: int = 0
     ominiwater_base_hot_temp_max: int = 0
     # #[RV50-016-WATER-PROTO] device_type=016 基站过水（帧 dev=0x10）
+    # 水量双模式：min/max 不全为 0 → 区间(mL)；否则 expected≥0 → 精确相等；都未启用则跳过
     rv50water_clear_volume_expected: int = -1
     rv50water_duty_volume_expected: int = -1
     rv50water_left_mop_volume_expected: int = -1
     rv50water_right_mop_volume_expected: int = -1
+    rv50water_clear_volume_min: int = 0
+    rv50water_clear_volume_max: int = 0
+    rv50water_duty_volume_min: int = 0
+    rv50water_duty_volume_max: int = 0
+    rv50water_left_mop_volume_min: int = 0
+    rv50water_left_mop_volume_max: int = 0
+    rv50water_right_mop_volume_min: int = 0
+    rv50water_right_mop_volume_max: int = 0
     rv50water_cleaner_level_expected: int = -1
     rv50water_left_mop_temp_min: int = 800
     rv50water_left_mop_temp_max: int = 1800
@@ -1469,7 +1478,7 @@ def load_config():
         config.get("ominiwater_base_hot_temp_max",
                    getattr(load_cfg, "ominiwater_base_hot_temp_max", 0)))
 
-    # #[RV50-016-WATER-PROTO] 过水判据；-1 表示不参与比较
+    # #[RV50-016-WATER-PROTO] 过水判据；水量：区间优先于精确；温度 min=max=0 跳过；液位 -1 跳过
     load_cfg.rv50water_clear_volume_expected = int(
         config.get("rv50water_clear_volume_expected",
                    getattr(load_cfg, "rv50water_clear_volume_expected", -1)))
@@ -1482,6 +1491,30 @@ def load_config():
     load_cfg.rv50water_right_mop_volume_expected = int(
         config.get("rv50water_right_mop_volume_expected",
                    getattr(load_cfg, "rv50water_right_mop_volume_expected", -1)))
+    load_cfg.rv50water_clear_volume_min = int(
+        config.get("rv50water_clear_volume_min",
+                   getattr(load_cfg, "rv50water_clear_volume_min", 0)))
+    load_cfg.rv50water_clear_volume_max = int(
+        config.get("rv50water_clear_volume_max",
+                   getattr(load_cfg, "rv50water_clear_volume_max", 0)))
+    load_cfg.rv50water_duty_volume_min = int(
+        config.get("rv50water_duty_volume_min",
+                   getattr(load_cfg, "rv50water_duty_volume_min", 0)))
+    load_cfg.rv50water_duty_volume_max = int(
+        config.get("rv50water_duty_volume_max",
+                   getattr(load_cfg, "rv50water_duty_volume_max", 0)))
+    load_cfg.rv50water_left_mop_volume_min = int(
+        config.get("rv50water_left_mop_volume_min",
+                   getattr(load_cfg, "rv50water_left_mop_volume_min", 0)))
+    load_cfg.rv50water_left_mop_volume_max = int(
+        config.get("rv50water_left_mop_volume_max",
+                   getattr(load_cfg, "rv50water_left_mop_volume_max", 0)))
+    load_cfg.rv50water_right_mop_volume_min = int(
+        config.get("rv50water_right_mop_volume_min",
+                   getattr(load_cfg, "rv50water_right_mop_volume_min", 0)))
+    load_cfg.rv50water_right_mop_volume_max = int(
+        config.get("rv50water_right_mop_volume_max",
+                   getattr(load_cfg, "rv50water_right_mop_volume_max", 0)))
     load_cfg.rv50water_cleaner_level_expected = int(
         config.get("rv50water_cleaner_level_expected",
                    getattr(load_cfg, "rv50water_cleaner_level_expected", -1)))
@@ -5909,19 +5942,31 @@ RV50WATER_UI_LABELS = {
     "base_station_config": "基站配置码：",
 }
 
+RV50WATER_UI_LABELS_ML = {
+    "clear_water_volume": "清水通路水量(mL)：",
+    "duty_water_volume": "污水通路水量(mL)：",
+    "left_mop_water_volume": "左拖布水量(mL)：",
+    "right_mop_water_volume": "右拖布水量(mL)：",
+}
+
 RV50WATER_FIELD_REGISTRY = [
-    {"field": "clear_vol", "kind": "exact_int", "ui": "clear_water_volume",
+    # kind=volume：区间优先（min/max 不全为 0），否则 exact（expected≥0）
+    {"field": "clear_vol", "kind": "volume", "ui": "clear_water_volume",
      "mes": "清水通路过水", "parse_key": "clear_water_volume",
-     "expect_attr": "rv50water_clear_volume_expected"},
-    {"field": "duty_vol", "kind": "exact_int", "ui": "duty_water_volume",
+     "expect_attr": "rv50water_clear_volume_expected",
+     "min_attr": "rv50water_clear_volume_min", "max_attr": "rv50water_clear_volume_max"},
+    {"field": "duty_vol", "kind": "volume", "ui": "duty_water_volume",
      "mes": "污水通路过水", "parse_key": "duty_water_volume",
-     "expect_attr": "rv50water_duty_volume_expected"},
-    {"field": "left_mop_vol", "kind": "exact_int", "ui": "left_mop_water_volume",
+     "expect_attr": "rv50water_duty_volume_expected",
+     "min_attr": "rv50water_duty_volume_min", "max_attr": "rv50water_duty_volume_max"},
+    {"field": "left_mop_vol", "kind": "volume", "ui": "left_mop_water_volume",
      "mes": "左拖布过水", "parse_key": "left_mop_water_volume",
-     "expect_attr": "rv50water_left_mop_volume_expected"},
-    {"field": "right_mop_vol", "kind": "exact_int", "ui": "right_mop_water_volume",
+     "expect_attr": "rv50water_left_mop_volume_expected",
+     "min_attr": "rv50water_left_mop_volume_min", "max_attr": "rv50water_left_mop_volume_max"},
+    {"field": "right_mop_vol", "kind": "volume", "ui": "right_mop_water_volume",
      "mes": "右拖布过水", "parse_key": "right_mop_water_volume",
-     "expect_attr": "rv50water_right_mop_volume_expected"},
+     "expect_attr": "rv50water_right_mop_volume_expected",
+     "min_attr": "rv50water_right_mop_volume_min", "max_attr": "rv50water_right_mop_volume_max"},
     {"field": "left_mop_temp", "kind": "range_int", "ui": "left_mop_temperature",
      "mes": "左拖布温度adc", "parse_key": "left_mop_temperature",
      "min_attr": "rv50water_left_mop_temp_min", "max_attr": "rv50water_left_mop_temp_max"},
@@ -5959,11 +6004,36 @@ def _rv50water_exact_enabled(expect_attr):
     return int(getattr(load_cfg, expect_attr, -1)) >= 0
 
 
+def rv50water_volume_resolve(field):
+    """水量双模式：('range', lo, hi) | ('exact', expect) | ('off', None)。区间优先于精确。"""
+    entry = _rv50water_registry_entry(field)
+    if entry is None or entry.get("kind") != "volume":
+        return "off", None
+    lo = int(getattr(load_cfg, entry["min_attr"], 0))
+    hi = int(getattr(load_cfg, entry["max_attr"], 0))
+    if _rv50water_range_enabled(lo, hi):
+        return "range", (lo, hi)
+    expect = int(getattr(load_cfg, entry.get("expect_attr", ""), -1))
+    if expect >= 0:
+        return "exact", expect
+    return "off", None
+
+
+def rv50water_volume_ui_label(ui_key, field):
+    mode, _ = rv50water_volume_resolve(field)
+    if mode == "range":
+        return RV50WATER_UI_LABELS_ML.get(ui_key, RV50WATER_UI_LABELS.get(ui_key, ""))
+    return RV50WATER_UI_LABELS.get(ui_key, "")
+
+
 def rv50water_field_enabled(field):
     entry = _rv50water_registry_entry(field)
     if entry is None:
         return False
     kind = entry["kind"]
+    if kind == "volume":
+        mode, _ = rv50water_volume_resolve(field)
+        return mode != "off"
     if kind == "exact_int":
         return _rv50water_exact_enabled(entry.get("expect_attr", ""))
     if kind == "range_int":
@@ -5985,7 +6055,11 @@ def rv50water_build_item_result():
             continue
         if rv50water_field_enabled(entry["field"]):
             ui = entry["ui"]
-            items.append({ui: [RV50WATER_UI_LABELS[ui], "", "white"]})
+            if entry["kind"] == "volume":
+                label = rv50water_volume_ui_label(ui, entry["field"])
+            else:
+                label = RV50WATER_UI_LABELS[ui]
+            items.append({ui: [label, "", "white"]})
     return items
 
 
@@ -6008,6 +6082,19 @@ def rv50water_field_ok(p, field):
     if entry is None:
         return None
     kind = entry["kind"]
+    if kind == "volume":
+        mode, param = rv50water_volume_resolve(field)
+        actual = p.get(entry.get("parse_key"))
+        if actual is None:
+            return False
+        if mode == "range":
+            lo, hi = param
+            if lo > hi:
+                lo, hi = hi, lo
+            return lo <= int(actual) <= hi
+        if mode == "exact":
+            return int(actual) == int(param)
+        return None
     if kind == "exact_int":
         expect = int(getattr(load_cfg, entry.get("expect_attr", ""), -1))
         actual = p.get(entry.get("parse_key"))
@@ -6046,7 +6133,7 @@ def rv50water_ui_result_for_field(field, p, finalize):
     if entry is None:
         return "monitor", ""
     kind = entry["kind"]
-    if kind in ("exact_int", "range_int"):
+    if kind in ("exact_int", "range_int", "volume"):
         val = p.get(entry.get("parse_key")) if p else None
         disp = "" if val is None else str(val)
         if not finalize:
@@ -6118,7 +6205,27 @@ def rv50water_add_reports(p):
         if not rv50water_field_enabled(field):
             continue
         kind = entry["kind"]
-        if kind == "exact_int":
+        if kind == "volume":
+            val = p.get(entry.get("parse_key"))
+            mode, param = rv50water_volume_resolve(field)
+            if mode == "range":
+                lo, hi = param
+                mes_run.add_report(
+                    name=entry["mes"],
+                    result="OK" if rv50water_field_ok(p, field) else "NG",
+                    value=str(val) if val is not None else "",
+                    val_min=lo,
+                    val_max=hi,
+                )
+            elif mode == "exact":
+                mes_run.add_report(
+                    name=entry["mes"],
+                    result="OK" if rv50water_field_ok(p, field) else "NG",
+                    value=str(val) if val is not None else "",
+                    val_min=param,
+                    val_max=param,
+                )
+        elif kind == "exact_int":
             val = p.get(entry.get("parse_key"))
             expect = int(getattr(load_cfg, entry.get("expect_attr", ""), -1))
             mes_run.add_report(

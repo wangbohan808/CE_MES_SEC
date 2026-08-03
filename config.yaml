@@ -28,7 +28,8 @@ show_base_station_config_ui: 0          # 仅控制「基站配置码」测试�
 # 5. 各工位跳过规则见下方 §015 / §016 / §017 / §020 / §021 / §022 章节内清单。
 # 6. 特殊注意（仅 RV50，Omini 无此问题）：
 #      §015 过气：气压项不能仅靠 # 注释，须把 min 与 max 都写成 0
-#      §016 过水：温度项不能仅靠 # 注释，须把 min 与 max 都写成 0；水量/液位可 # 或写 -1
+#      §016 过水：温度项 / 水量区间(min/max) 不能仅靠 # 注释，须都写成 0；
+#               水量精确(expected) / 液位 可 # 或写 -1（详见 §016 水量双模式说明）
 
 # -----------------------------------------------------------------------------
 # device_type 索引（三位字符串，与 ui/MainFrame.py heading_line_dict 一致）
@@ -315,27 +316,56 @@ ominiwater_right_mop_volume_expected: 3   # 右拖布过水；【跳过】# 注�
 # -----------------------------------------------------------------------------
 # #[RV50-016-WATER-PROTO] 0x77 数据区 24 字节（dat[22~23]=主机注水口热水温度 ADC）；0x88：03=正常结束  04=通讯失败
 #
-# 【逐项跳过 — 不显示 UI】（修改后重启程序）
-#   测试项              配置键                                      跳过操作
-#   清水通路过水        rv50water_clear_volume_expected             # 注释 或写 -1
-#   污水通路过水        rv50water_duty_volume_expected              # 注释 或写 -1
-#   左拖布过水          rv50water_left_mop_volume_expected          # 注释 或写 -1
-#   右拖布过水          rv50water_right_mop_volume_expected         # 注释 或写 -1
-#   清洁剂液位          rv50water_cleaner_level_expected            # 注释 或写 -1
-#   左拖布温度 ADC      rv50water_left_mop_temp_min / _max          min 与 max 都写 0（不能只 # 注释）
-#   右拖布温度 ADC      rv50water_right_mop_temp_min / _max         同上，都写 0
-#   基站热水温度 ADC    rv50water_base_hot_temp_min / _max          同上，都写 0
-#   主机注水口热水温度  rv50water_host_hot_temp_min / _max          同上，都写 0
-#   基站版本            公共 mcu_version                            # 注释 或 ""
+# ==========【工人必读】四路过水水量 — 两种模式二选一（改完保存并重启）==========
+# 规则：区间(min/max) 优先于 精确(expected)。同一路不要两种都开。
 #
-# 示例 — 跳过左拖布温度：
-#   rv50water_left_mop_temp_min: 0
-#   rv50water_left_mop_temp_max: 0
+# 【模式A｜旧逻辑｜多数项目】实测 == expected（常见填 3）
+#   1) expected 写成 3（或其它期望值）
+#   2) 对应 min 与 max 都写成 0（关掉区间）
+#   界面显示「xxx水量：」；跳过该路 → expected 写 -1（或 # 注释）且 min/max 为 0
+#   示例（整段替换下面「当前生效」水量配置即可）：
+#     rv50water_clear_volume_expected: 3
+#     rv50water_duty_volume_expected: 3
+#     rv50water_left_mop_volume_expected: 3
+#     rv50water_right_mop_volume_expected: 3
+#     rv50water_clear_volume_min: 0
+#     rv50water_clear_volume_max: 0
+#     rv50water_duty_volume_min: 0
+#     rv50water_duty_volume_max: 0
+#     rv50water_left_mop_volume_min: 0
+#     rv50water_left_mop_volume_max: 0
+#     rv50water_right_mop_volume_min: 0
+#     rv50water_right_mop_volume_max: 0
+#
+# 【模式B｜mL 区间｜需要真实水量判据的项目】min ≤ 实测 ≤ max（单位 mL，两字节 u16）
+#   1) expected 写成 -1（或 # 注释掉 expected 行）
+#   2) min/max 写成区间，如 100 / 1000；四路可各自不同
+#   界面显示「xxx水量(mL)：」；跳过该路 → 该路 min 与 max 都写 0
+#   （下方「当前生效」即为模式B 示例）
+#
+# 【其它测试项跳过】
+#   清洁剂液位          rv50water_cleaner_level_expected            # 注释 或写 -1
+#   左拖布温度 ADC      rv50water_left_mop_temp_min / _max          min 与 max 都写 0
+#   右拖布温度 ADC      rv50water_right_mop_temp_min / _max         同上
+#   基站热水温度 ADC    rv50water_base_hot_temp_min / _max          同上
+#   主机注水口热水温度  rv50water_host_hot_temp_min / _max          同上
+#   基站版本            公共 mcu_version                            # 注释 或 ""
+# ==============================================================================
 
-rv50water_clear_volume_expected: 3        # 清水通路过水；【跳过】# 注释 或写 -1
-rv50water_duty_volume_expected: 3         # 污水通路过水；【跳过】# 注释 或写 -1
-rv50water_left_mop_volume_expected: 3     # 左拖布过水；【跳过】# 注释 或写 -1
-rv50water_right_mop_volume_expected: 3    # 右拖布过水；【跳过】# 注释 或写 -1
+# ----- 水量：当前生效 = 模式B（mL 区间 100~1000）。若要改回模式A，见上方注释示例 -----
+rv50water_clear_volume_expected: -1       # 模式A 时改为 3；模式B 保持 -1
+rv50water_duty_volume_expected: -1        # 同上
+rv50water_left_mop_volume_expected: -1    # 同上
+rv50water_right_mop_volume_expected: -1   # 同上
+rv50water_clear_volume_min: 100           # 模式B：清水下限(mL)；关掉区间 → 与 max 都写 0
+rv50water_clear_volume_max: 1000          # 模式B：清水上限(mL)
+rv50water_duty_volume_min: 100            # 模式B：污水下限(mL)
+rv50water_duty_volume_max: 1000           # 模式B：污水上限(mL)
+rv50water_left_mop_volume_min: 100        # 模式B：左拖布下限(mL)
+rv50water_left_mop_volume_max: 1000       # 模式B：左拖布上限(mL)
+rv50water_right_mop_volume_min: 100       # 模式B：右拖布下限(mL)
+rv50water_right_mop_volume_max: 1000      # 模式B：右拖布上限(mL)
+
 rv50water_cleaner_level_expected: 3       # 清洁剂液位；【跳过】# 注释 或写 -1
 rv50water_left_mop_temp_min: 800           # 左拖布温度下限；【跳过】与 max 都写 0（勿只 # 注释）
 rv50water_left_mop_temp_max: 1800          # 左拖布温度上限；【跳过】与 min 都写 0
