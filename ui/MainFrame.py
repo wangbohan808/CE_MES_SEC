@@ -13,7 +13,7 @@ import applog
 # 主界面
 main_frame = None
 # 标题和版本号
-name_ver = "海能测试治具 v1.0.3"
+name_ver = "海能测试治具 v1.0.4"
 
 # 位图列表
 bitmap_list = [
